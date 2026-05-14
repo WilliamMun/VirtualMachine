@@ -251,7 +251,7 @@ public:
     Runner() {}
 
     void loadProgram(const std::string& filename) {
-        // Read .asm file line by line [cite: 80]
+        // Read .asm file line by line 
         // Decode strings into Instruction objects
         // Store in CustomVector
     }
@@ -264,19 +264,19 @@ public:
 
     void dumpState() {
         // Printing Format After Executing Each Line of Assembly Code: 
-	// #ProgramCounter#0000#
-	// #Flags#Overflow#0#Underflow#0#Carry#0#Zero#0#
+	    // #ProgramCounter#0000#
+	    // #Flags#Overflow#0#Underflow#0#Carry#0#Zero#0#
         // #Register#R1#0000#R2#0000#R3#0000#R4#0000#R5#0000#R6#0000#R7#0000#R8#0000#
         // #Memory#
-	// #0000#0000#0000#0000#0000#0000#0000#0000#  
-	// #0000#0000#0000#0000#0000#0000#0000#0000# 
-	// #0000#0000#0000#0000#0000#0000#0000#0000# 
-	// #0000#0000#0000#0000#0000#0000#0000#0000# 
-	// #0000#0000#0000#0000#0000#0000#0000#0000# 
-	// #0000#0000#0000#0000#0000#0000#0000#0000# 
-	// #0000#0000#0000#0000#0000#0000#0000#0000# 
-	// #0000#0000#0000#0000#0000#0000#0000#0000# 
-	// Note: All outputs print number in decimal format.
+	    // #0000#0000#0000#0000#0000#0000#0000#0000#  
+	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
+	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
+	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
+	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
+	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
+	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
+	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
+	    // Note: All outputs print number in decimal format.
     }
 };
 
