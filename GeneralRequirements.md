@@ -567,7 +567,7 @@ public:
 
 &#x20;   void loadProgram(const std::string\& filename) {
 
-&#x20;       // Read .asm file line by line \[cite: 80]
+&#x20;       // Read .asm file line by line 
 
 &#x20;       // Decode strings into Instruction objects
 
