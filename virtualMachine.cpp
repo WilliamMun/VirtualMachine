@@ -1,6 +1,20 @@
 #include <iostream>
 #include <string>
-#include <stdexcept>
+
+// ==========================================
+// Class Header
+// ==========================================
+
+// ==========================================
+// EXCEPTION HANDLING
+// ==========================================
+class VMException {
+    private:
+        const char* errorMessage;
+    public:
+        VMException(const char* msg) { errorMessage = msg; }
+        const char* getErrorMessage() const { return errorMessage; }
+};
 
 // ==========================================
 // 1. DATA STRUCTURES
@@ -41,7 +55,7 @@ public:
 };
 
 // ==========================================
-// B. CUSTOM STACK
+// B. CUSTOM STACK 
 // ==========================================
 template <typename T>
 class CustomStack {
@@ -51,7 +65,7 @@ private:
     int maxCapacity;
 
 public:
-    // Constructor with default size of 8 (as per VM specs)
+    // Constructor with default size of 8 
     CustomStack(int size = 8);
     ~CustomStack();
 
@@ -103,46 +117,46 @@ public:
 
 // Base class encapsulating an 8-bit signed value 
 class Register {
-private:
-    signed char value; // 1 byte (signed char, -128 to 127) 
+    private:
+        signed char value; // 1 byte (signed char, -128 to 127) 
 
-public:
-    Register() : value(0) {}
-    virtual ~Register() {}
+    public:
+        Register() : value(0) {}
+        virtual ~Register() {}
 
-    // Encapsulation: getters and setters 
-    signed char getValue() const { return value; }
-    void setValue(signed char v) { value = v; }
+        // Encapsulation: getters and setters 
+        signed char getValue() const { return value; }
+        void setValue(signed char v) { value = v; }
 };
 
 // Represents R0-R7 registers 
 class DataRegister : public Register {
-public:
-    DataRegister() : Register() {}
+    public:
+        DataRegister() : Register() {}
 };
 
 // Manages individual flag bits (CF, OF, UF, ZF) 
 class FlagRegister {
-private:
-    bool CF, OF, UF, ZF;
+    private:
+        bool CF, OF, UF, ZF;
 
-public:
-    FlagRegister() : CF(false), OF(false), UF(false), ZF(false) {}
+    public:
+        FlagRegister() : CF(false), OF(false), UF(false), ZF(false) {}
 
-    // Getters and setters for flags 
-    bool getCF() const { return CF; }
-    void setCF(bool val) { CF = val; }
+        // Getters and setters for flags 
+        bool getCF() const { return CF; }
+        void setCF(bool val) { CF = val; }
     
-    bool getOF() const { return OF; }
-    void setOF(bool val) { OF = val; }
+        bool getOF() const { return OF; }
+        void setOF(bool val) { OF = val; }
 
-    bool getUF() const { return UF; }
-    void setUF(bool val) { UF = val; }
+        bool getUF() const { return UF; }
+        void setUF(bool val) { UF = val; }
 
-    bool getZF() const { return ZF; }
-    void setZF(bool val) { ZF = val; }
+        bool getZF() const { return ZF; }
+        void setZF(bool val) { ZF = val; }
     
-    void resetAll() { CF = OF = UF = ZF = false; }
+        void resetAll() { CF = OF = UF = ZF = false; }
 };
 
 // ==========================================
@@ -151,24 +165,16 @@ public:
 
 // Handles storage and addressing logic over a vector of bytes 
 class Memory {
-private:
-    signed char data[64]; // 1-dimensional array of 64 signed bytes
+    private:
+        signed char data[64]; // 1-dimensional array of 64 signed bytes
 
-public:
-    Memory() {
-        for (int i = 0; i < 64; ++i) {
-            data[i] = 0;
-        }
-    }
-
-    signed char read(int address) const {
-        if (address >= 0 && address < 64) return data[address];
-        return 0; // Handle error appropriately
-    }
-
-    void write(int address, signed char value) {
-        if (address >= 0 && address < 64) data[address] = value;
-    }
+    public: 
+        Memory(); // Default constructor
+        Memory(const Memory &mem); // Copy constructor
+        Memory& operator=(const Memory& other); // Copy assignment operator
+        signed char read(int address) const; // 
+        void write(int address, signed char value);
+        void displayMemory();
 };
 
 // ==========================================
@@ -279,6 +285,66 @@ public:
 	    // Note: All outputs print number in decimal format.
     }
 };
+
+// ==========================================
+// Class Implementation
+// ==========================================
+Memory::Memory() // Default constructor
+{
+    for (int i = 0; i < 64; ++i) {
+        data[i] = 0;
+    }
+}
+
+Memory::Memory(const Memory &mem) // Copy constructor
+{
+    for(int i = 0; i < 64; i++){
+        data[i] = mem.data[i];
+    }
+}
+
+Memory& Memory::operator=(const Memory& other)
+{
+    if(this == other)
+        return *this;
+
+    for(int i=0;i<6;i++){
+        this->data[i] = other.data[i];
+    }
+
+    return *this;
+}
+
+signed char Memory::read(int address) const
+{
+    if (address >= 0 && address < 64) 
+        return data[address];
+    else 
+        throw VMException("Data cannot be displayed due to address out of bound.")
+}
+
+void write(int address, signed char value)
+{
+    if (address >= 0 && address < 64) 
+        data[address] = value;
+    else
+        throw VMException("Data cannot be written due to address out of bound.");
+}
+
+void Memory::displayMemory()
+{
+    cout << "#Memory#" << endl;
+    cout << "#";
+    for(int i = 0; i < 64; i++){
+        if(i == 8 || i == 16 || i == 24 || i == 32 || i == 40 || i == 48 || i == 56){
+            cout << endl;
+            cout << "#" << data[i] << "#";
+        } else {
+            cout << data[i] << "#";
+        }
+    }
+    cout << endl;
+}
 
 // ==========================================
 // ENTRY POINT
