@@ -2,6 +2,7 @@
 
 1. Each function cannot exceeds 35 lines. 
 2. Always include exception in your function to handle possible error that could appear during program execution.
+3. Defines only header in class header & function header. Class implementation & function implementation need to be defined in the implementation part. Only inline functions & in place initialization allowed in class header. (To improve code readability, stated in rubrics)
 
 
 
