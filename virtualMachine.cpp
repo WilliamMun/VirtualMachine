@@ -171,10 +171,10 @@ class Memory {
     public: 
         Memory(); // Default constructor
         Memory(const Memory &mem); // Copy constructor
-        ~Memory() { delete [] data; } // Destructor
-
-        signed char read(int address) const;
+        Memory& operator=(const Memory& other); // Copy assignment operator
+        signed char read(int address) const; // 
         void write(int address, signed char value);
+        void displayMemory();
 };
 
 // ==========================================
@@ -298,10 +298,21 @@ Memory::Memory() // Default constructor
 
 Memory::Memory(const Memory &mem) // Copy constructor
 {
-    data = new int[64];
     for(int i = 0; i < 64; i++){
         data[i] = mem.data[i];
     }
+}
+
+Memory& Memory::operator=(const Memory& other)
+{
+    if(this == other)
+        return *this;
+
+    for(int i=0;i<6;i++){
+        this->data[i] = other.data[i];
+    }
+
+    return *this;
 }
 
 signed char Memory::read(int address) const
@@ -318,6 +329,21 @@ void write(int address, signed char value)
         data[address] = value;
     else
         throw VMException("Data cannot be written due to address out of bound.");
+}
+
+void Memory::displayMemory()
+{
+    cout << "#Memory#" << endl;
+    cout << "#";
+    for(int i = 0; i < 64; i++){
+        if(i == 8 || i == 16 || i == 24 || i == 32 || i == 40 || i == 48 || i == 56){
+            cout << endl;
+            cout << "#" << data[i] << "#";
+        } else {
+            cout << data[i] << "#";
+        }
+    }
+    cout << endl;
 }
 
 // ==========================================
