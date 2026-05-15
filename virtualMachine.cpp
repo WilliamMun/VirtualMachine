@@ -6,6 +6,17 @@
 // ==========================================
 
 // ==========================================
+// EXCEPTION HANDLING
+// ==========================================
+class VMException {
+    private:
+        const char* errorMessage;
+    public:
+        VMException(const char* msg) { errorMessage = msg; }
+        const char* getErrorMessage() const { return errorMessage; }
+};
+
+// ==========================================
 // 1. DATA STRUCTURES
 // ==========================================
 
@@ -44,7 +55,7 @@ public:
 };
 
 // ==========================================
-// B. CUSTOM STACK
+// B. CUSTOM STACK 
 // ==========================================
 template <typename T>
 class CustomStack {
@@ -162,11 +173,7 @@ class Memory {
         Memory(const Memory &mem); // Copy constructor
         ~Memory() { delete [] data; } // Destructor
 
-        signed char read(int address) const {
-            if (address >= 0 && address < 64) return data[address];
-            return 0; // Handle error appropriately
-        }
-
+        signed char read(int address) const;
         void write(int address, signed char value) {
             if (address >= 0 && address < 64) data[address] = value;
         }
@@ -296,6 +303,16 @@ Memory::Memory(const Memory &mem) // Copy constructor
     data = new int[64];
     for(int i = 0; i < 64; i++){
         data[i] = mem.data[i];
+    }
+}
+
+signed char Memory::read(int address) const
+{
+    try {
+        if (address >= 0 && address < 64) 
+            return data[address];
+    } catch () {
+
     }
 }
 
