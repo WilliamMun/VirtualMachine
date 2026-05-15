@@ -174,9 +174,7 @@ class Memory {
         ~Memory() { delete [] data; } // Destructor
 
         signed char read(int address) const;
-        void write(int address, signed char value) {
-            if (address >= 0 && address < 64) data[address] = value;
-        }
+        void write(int address, signed char value);
 };
 
 // ==========================================
@@ -308,12 +306,18 @@ Memory::Memory(const Memory &mem) // Copy constructor
 
 signed char Memory::read(int address) const
 {
-    try {
-        if (address >= 0 && address < 64) 
-            return data[address];
-    } catch () {
+    if (address >= 0 && address < 64) 
+        return data[address];
+    else 
+        throw VMException("Data cannot be displayed due to address out of bound.")
+}
 
-    }
+void write(int address, signed char value)
+{
+    if (address >= 0 && address < 64) 
+        data[address] = value;
+    else
+        throw VMException("Data cannot be written due to address out of bound.");
 }
 
 // ==========================================
