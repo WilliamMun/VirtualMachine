@@ -200,6 +200,7 @@ public:
     DataRegister& getRegister(int index) { return R[index]; }
     FlagRegister& getFlags() { return flags; }
     Memory& getMemory() { return memory; }
+    CustomStack<signed char>& getstack() {return systemStack;}
  
     unsigned char getPC() const { return PC; }
     void incrementPC() { PC++; }
