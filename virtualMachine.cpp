@@ -265,6 +265,12 @@ private:
 public:
     Runner() {}
 
+    ~Runner() 
+    {
+        for (int i = 0; i < program.size(); i++)
+        {delete program.at(i);}
+    }
+
     void loadProgram(const std::string& filename) {
         // Read .asm file line by line 
         // Decode strings into Instruction objects
