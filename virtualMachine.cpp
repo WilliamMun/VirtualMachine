@@ -208,6 +208,14 @@ public:
     unsigned char getSI() const { return SI; }
     void incrementSI() { SI++; }
     void decrementSI() { SI--; }
+
+    void updateMathFlags(int result)
+    {
+        flags.resetAll();
+        if (result == 0) {flags.setZF(true);}
+        if (result > 127) {flags.setOF(true); flags.setCF(true);}
+        if (result < -128) {flags.setUF(true); flags.setCF(true);}
+    }
 };
 
 // ==========================================
