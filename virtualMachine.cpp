@@ -1,5 +1,7 @@
 #include <iostream>
 #include <string>
+#include <sstream>
+using namespace std;
 
 // ==========================================
 // Class Header
@@ -282,6 +284,40 @@ private:
             return stoi(justNumber);
         }
         return 0;
+    }
+
+    Instruction* MathAndLogic(const std::string& first, std::stringstream& rest)
+    {
+        std::string dest,value;
+
+        if (first == "INC" || first == "DEC") {
+            rest >> dest;
+            if (first == "INC") return new IncInstruction(parseReg(dest));
+            return new DecInstruction(parseReg(dest));
+        }
+        
+        if (first != "ADD" && first != "SUB" && first != "MUL" && first != "DIV" && first != "MOV") return nullptr;
+        
+        rest >> dest >> value;
+        
+        // Clean variable 'dest' (Remove the trailing comma)
+        if (dest.back() == ',') {
+            dest.pop_back(); 
+        }
+        
+        int reg = numberReg(dest);
+        
+        if (first == "MOV") {
+            if (dest[0] == 'R' || dest[0] == 'r') return new MovRegInstruction(reg, numberReg(value));
+            return new MovImmInstruction(reg, stoi(value));
+        }
+        if (first == "ADD") return new AddImmInstruction(reg, stoi(value));
+        if (first == "SUB") return new SubImmInstruction(reg, stoi(value));
+        if (first == "MUL") return new MulImmInstruction(reg, stoi(value));
+        if (first == "DIV") return new DivImmInstruction(reg, stoi(value));
+        
+        return nullptr;
+    }
     }
 
 public:
