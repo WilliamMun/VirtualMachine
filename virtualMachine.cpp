@@ -273,6 +273,17 @@ private:
         return true;
     }
 
+    int numberReg(std::string dummy)
+    {
+        if(dummy.empty()) return 0;
+        if(dummy[0] == 'R' || dummy[0] == 'r')
+        {
+            std::string justNumber = dummy.substr(1);
+            return stoi(justNumber);
+        }
+        return 0;
+    }
+
 public:
     Runner() {}
 
