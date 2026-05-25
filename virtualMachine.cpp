@@ -318,6 +318,44 @@ private:
         
         return nullptr;
     }
+
+    Instruction* parseMemAndIO(const string& first, stringstream& rest) {
+        string a, b;
+        if (first == "INPUT") { rest >> a; return new InputInstruction(numberReg(a)); }
+        if (first == "DISPLAY") { rest >> a; return new DisplayInstruction(numberReg(a)); }
+        if (first == "PUSH") { rest >> a; return new PushInstruction(numberReg(a)); }
+        if (first == "POP") { rest >> a; return new PopInstruction(numberReg(a)); }
+        
+        if (first == "LOAD") {
+            rest >> a >> b;
+            
+            // Clean 'a' (Remove the comma)
+            if (a.back() == ',') a.pop_back();
+            
+            // Clean 'b' (Remove both square brackets for memory addressing)
+            if (b.front() == '[') b.erase(0, 1);
+            if (b.back() == ']') b.pop_back();
+            
+            if (b[0] == 'R' || b[0] == 'r') return new LoadRegAddrInstruction(numberReg(a), numberReg(b));
+            return new LoadImmAddrInstruction(numberReg(a), stoi(b));
+        }
+        
+        if (first == "STORE") {
+            rest >> a >> b;
+            
+            // Clean 'a' (Remove the comma)
+            if (a.back() == ',') a.pop_back();
+            
+            // Check if 'a' is an indirect address (e.g., "[R2]")
+            if (a.front() == '[') {
+                a.erase(0, 1); 
+                if (a.back() == ']') a.pop_back();
+                return new StoreRegAddrInstruction(numberReg(a), numberReg(b));
+            }
+            return new StoreInstruction(stoi(a), numberReg(b));
+        }
+        return nullptr;
+    }
     }
 
 public:
