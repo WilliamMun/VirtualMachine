@@ -262,6 +262,17 @@ private:
     CPU virtualMachine; // Composition 
     CustomVector<Instruction*> program; // Polymorphic storage 
 
+    bool isBlankLine(std::string dummy)
+    {
+        if (dummy.empty()) return true;
+        for(int i=0; i < dummy.length(); i++)
+        {
+            if(dummy[i] != ' ' && dummy[i]!= '\t' && dummy[i]!= '\r' && dummy[i]!= '\n')
+            return false;
+        }
+        return true;
+    }
+
 public:
     Runner() {}
 
