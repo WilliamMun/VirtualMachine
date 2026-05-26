@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <fstream>
 using namespace std;
 
 // ==========================================
@@ -319,7 +320,7 @@ private:
         return nullptr;
     }
 
-    Instruction* parseMemAndIO(const string& first, stringstream& rest) {
+    Instruction* MemAndIO(const string& first, stringstream& rest) {
         string a, b;
         if (first == "INPUT") { rest >> a; return new InputInstruction(numberReg(a)); }
         if (first == "DISPLAY") { rest >> a; return new DisplayInstruction(numberReg(a)); }
@@ -375,7 +376,6 @@ private:
         if (first == "ROR") return new RorInstruction(reg, count);
         return nullptr;
     }
-    }
 
 public:
     Runner() {}
@@ -390,6 +390,40 @@ public:
         // Read .asm file line by line 
         // Decode strings into Instruction objects
         // Store in CustomVector
+        ifstream file(filename);
+        if(!file.is_open()){
+            cout << "Error: Could not open file" << filename << "\n";
+            exit(1);
+        }
+
+        //store into queue
+        CustomQueue<string> lineQueue;
+        string line;
+
+        while(getline(file,line))
+        {
+            if(isBlankLine(line)) continue;
+            lineQueue.enqueue(line);
+        }
+        file.close();
+
+        //dequeue and put into vector
+        while(!lineQueue.isEmpty())
+        {
+            string currentLine;
+            lineQueue.dequeue(currentLine);
+
+            stringstream line(currentLine);
+            string first;
+            line >> first;
+
+            Instruction* inst = MathAndLogic(first, line);
+            if (!inst) inst = MemAndIO(first, line);
+            if (!inst) inst = ShiftAndReset(first, line);
+        
+            if (inst) program.push_back(inst); 
+            else cout << "Warning: Unrecognized command -> " << first << "\n";
+        }
     }
 
     void executeProgram() {
