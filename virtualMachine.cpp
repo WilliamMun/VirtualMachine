@@ -430,6 +430,17 @@ public:
         // Iterate through CustomVector of instructions
         // Call instruction->execute(virtualMachine)
         // Ensure virtualMachine.incrementPC() is called
+        try {
+            for (int i = 0; i < program.size(); i++)
+            {
+                program.at(i) ->execute(virtualMachine);
+                virtualMachine.incrementPC();
+            }
+        }
+        catch(const VMException& e)
+        {
+            cout << "\n Error: " << e.getErrorMessage() << "\n Stopping";
+        }
     }
 
     void dumpState() {
