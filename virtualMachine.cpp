@@ -445,6 +445,7 @@ public:
             {
                 program.at(i) ->execute(virtualMachine);
                 virtualMachine.incrementPC();
+                dumpState();
             }
         }
         catch(const VMException& e)
