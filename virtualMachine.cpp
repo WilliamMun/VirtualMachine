@@ -2,6 +2,7 @@
 #include <string>
 #include <sstream>
 #include <fstream>
+#include <iomanip>
 using namespace std;
 
 // ==========================================
@@ -276,6 +277,15 @@ private:
         return true;
     }
 
+    // Helper function to pad numbers with leading zeroes
+    string format4(int num) {
+        stringstream belt;
+        // setfill('0') tells it to use zeroes. 
+        // setw(4) tells it to make sure the string is exactly 4 characters wide.
+        belt << setfill('0') << setw(4) << num;
+        return belt.str();
+    }
+
     int numberReg(std::string dummy)
     {
         if(dummy.empty()) return 0;
@@ -458,6 +468,32 @@ public:
 	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
 	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
 	    // Note: All outputs print number in decimal format.
+
+        cout << "#Begin#\n";
+        
+        cout << "#Registers#";
+        for (int i = 0; i < 8; i++) {
+            cout << format4((int)virtualMachine.getRegister(i).getValue()) << "#";
+        }
+        cout << "\n";
+
+        FlagRegister& f = virtualMachine.getFlags();
+        cout << "#Flags#" << f.getOF() << "#" << f.getUF() << "#" << f.getCF() << "#" << f.getZF() << "#\n";
+
+        cout << "#PC#" << format4((int)virtualMachine.getPC()) << "#\n";
+
+        cout << "#Memory#\n";
+        Memory& mem = virtualMachine.getMemory();
+        for (int row = 0; row < 8; row++) {
+            cout << "#";
+            for (int col = 0; col < 8; col++) {
+                int address = (row * 8) + col;
+                cout << format4((int)mem.read(address)) << "#";
+            }
+            cout << "\n";
+        }
+        
+        cout << "#End#\n";
     }
 };
 
