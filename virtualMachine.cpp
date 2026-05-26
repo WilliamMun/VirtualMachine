@@ -356,6 +356,25 @@ private:
         }
         return nullptr;
     }
+
+    Instruction* ShiftAndReset(const string& first, stringstream& rest) {
+        string a, b;
+        if (first == "RESET") { rest >> a; return new ResetInstruction(a); }
+        if (first != "SHL" && first != "SHR" && first != "ROL" && first != "ROR") return nullptr;
+        
+        rest >> a >> b;
+        
+        // Clean 'a' (Remove the comma)
+        if (a.back() == ',') a.pop_back();
+        
+        int reg = numberReg(a), count = stoi(b);
+        
+        if (first == "SHL") return new ShlInstruction(reg, count);
+        if (first == "SHR") return new ShrInstruction(reg, count);
+        if (first == "ROL") return new RolInstruction(reg, count);
+        if (first == "ROR") return new RorInstruction(reg, count);
+        return nullptr;
+    }
     }
 
 public:
