@@ -303,8 +303,8 @@ private:
 
         if (first == "INC" || first == "DEC") {
             rest >> dest;
-            if (first == "INC") return new IncInstruction(parseReg(dest));
-            return new DecInstruction(parseReg(dest));
+            if (first == "INC") return new IncInstruction(numberReg(dest));
+            return new DecInstruction(numberReg(dest));
         }
         
         if (first != "ADD" && first != "SUB" && first != "MUL" && first != "DIV" && first != "MOV") return nullptr;
