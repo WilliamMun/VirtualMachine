@@ -319,7 +319,7 @@ private:
         int reg = numberReg(dest);
         
         if (first == "MOV") {
-            if (dest[0] == 'R' || dest[0] == 'r') return new MovRegInstruction(reg, numberReg(value));
+            if (value[0] == 'R' || value[0] == 'r') return new MovRegInstruction(reg, numberReg(value));
             return new MovImmInstruction(reg, stoi(value));
         }
         if (first == "ADD") return new AddImmInstruction(reg, stoi(value));
