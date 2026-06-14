@@ -208,6 +208,14 @@ public:
     unsigned char getSI() const { return SI; }
     void incrementSI() { SI++; }
     void decrementSI() { SI--; }
+
+    void updateMathFlags(int result)
+    {
+        flags.resetAll();
+        if (result == 0) {flags.setZF(true);}
+        if (result > 127) {flags.setOF(true); flags.setCF(true);}
+        if (result < -128) {flags.setUF(true); flags.setCF(true);}
+    }
 };
 
 // ==========================================
@@ -398,19 +406,192 @@ private:
     CPU virtualMachine; // Composition 
     CustomVector<Instruction*> program; // Polymorphic storage 
 
+    bool isBlankLine(std::string dummy)
+    {
+        if (dummy.empty()) return true;
+        for(int i=0; i < dummy.length(); i++)
+        {
+            if(dummy[i] != ' ' && dummy[i]!= '\t' && dummy[i]!= '\r' && dummy[i]!= '\n')
+            return false;
+        }
+        return true;
+    }
+
+    // Helper function to pad numbers with leading zeroes
+    string format4(int num) {
+        stringstream belt;
+        // setfill('0') tells it to use zeroes. 
+        // setw(4) tells it to make sure the string is exactly 4 characters wide.
+        belt << setfill('0') << setw(4) << num;
+        return belt.str();
+    }
+
+    int numberReg(std::string dummy)
+    {
+        if(dummy.empty()) return 0;
+        if(dummy[0] == 'R' || dummy[0] == 'r')
+        {
+            std::string justNumber = dummy.substr(1);
+            return stoi(justNumber);
+        }
+        return 0;
+    }
+
+    Instruction* MathAndLogic(const std::string& first, std::stringstream& rest)
+    {
+        std::string dest,value;
+
+        if (first == "INC" || first == "DEC") {
+            rest >> dest;
+            if (first == "INC") return new IncInstruction(numberReg(dest));
+            return new DecInstruction(numberReg(dest));
+        }
+        
+        if (first != "ADD" && first != "SUB" && first != "MUL" && first != "DIV" && first != "MOV") return nullptr;
+        
+        rest >> dest >> value;
+        
+        // Clean variable 'dest' (Remove the trailing comma)
+        if (dest.back() == ',') {
+            dest.pop_back(); 
+        }
+        
+        int reg = numberReg(dest);
+        
+        if (first == "MOV") {
+            if (value[0] == 'R' || value[0] == 'r') return new MovRegInstruction(reg, numberReg(value));
+            return new MovImmInstruction(reg, stoi(value));
+        }
+        if (first == "ADD") return new AddImmInstruction(reg, stoi(value));
+        if (first == "SUB") return new SubImmInstruction(reg, stoi(value));
+        if (first == "MUL") return new MulImmInstruction(reg, stoi(value));
+        if (first == "DIV") return new DivImmInstruction(reg, stoi(value));
+        
+        return nullptr;
+    }
+
+    Instruction* MemAndIO(const string& first, stringstream& rest) {
+        string a, b;
+        if (first == "INPUT") { rest >> a; return new InputInstruction(numberReg(a)); }
+        if (first == "DISPLAY") { rest >> a; return new DisplayInstruction(numberReg(a)); }
+        if (first == "PUSH") { rest >> a; return new PushInstruction(numberReg(a)); }
+        if (first == "POP") { rest >> a; return new PopInstruction(numberReg(a)); }
+        
+        if (first == "LOAD") {
+            rest >> a >> b;
+            
+            // Clean 'a' (Remove the comma)
+            if (a.back() == ',') a.pop_back();
+            
+            // Clean 'b' (Remove both square brackets for memory addressing)
+            if (b.front() == '[') b.erase(0, 1);
+            if (b.back() == ']') b.pop_back();
+            
+            if (b[0] == 'R' || b[0] == 'r') return new LoadRegAddrInstruction(numberReg(a), numberReg(b));
+            return new LoadImmAddrInstruction(numberReg(a), stoi(b));
+        }
+        
+        if (first == "STORE") {
+            rest >> a >> b;
+            
+            // Clean 'a' (Remove the comma)
+            if (a.back() == ',') a.pop_back();
+            
+            // Check if 'a' is an indirect address (e.g., "[R2]")
+            if (a.front() == '[') {
+                a.erase(0, 1); 
+                if (a.back() == ']') a.pop_back();
+                return new StoreRegAddrInstruction(numberReg(a), numberReg(b));
+            }
+            return new StoreInstruction(stoi(a), numberReg(b));
+        }
+        return nullptr;
+    }
+
+    Instruction* ShiftAndReset(const string& first, stringstream& rest) {
+        string a, b;
+        if (first == "RESET") { rest >> a; return new ResetInstruction(a); }
+        if (first != "SHL" && first != "SHR" && first != "ROL" && first != "ROR") return nullptr;
+        
+        rest >> a >> b;
+        
+        // Clean 'a' (Remove the comma)
+        if (a.back() == ',') a.pop_back();
+        
+        int reg = numberReg(a), count = stoi(b);
+        
+        if (first == "SHL") return new ShlInstruction(reg, count);
+        if (first == "SHR") return new ShrInstruction(reg, count);
+        if (first == "ROL") return new RolInstruction(reg, count);
+        if (first == "ROR") return new RorInstruction(reg, count);
+        return nullptr;
+    }
+
 public:
     Runner() {}
 
-    void loadProgram(const string& filename) {
+    ~Runner() 
+    {
+        for (int i = 0; i < program.size(); i++)
+        {delete program.at(i);}
+    }
+
+    void loadProgram(const std::string& filename) {
         // Read .asm file line by line 
         // Decode strings into Instruction objects
         // Store in CustomVector
+        ifstream file(filename);
+        if(!file.is_open()){
+            cout << "Error: Could not open file" << filename << "\n";
+            exit(1);
+        }
+
+        //store into queue
+        CustomQueue<string> lineQueue;
+        string line;
+
+        while(getline(file,line))
+        {
+            if(isBlankLine(line)) continue;
+            lineQueue.enqueue(line);
+        }
+        file.close();
+
+        //dequeue and put into vector
+        while(!lineQueue.isEmpty())
+        {
+            string currentLine;
+            lineQueue.dequeue(currentLine);
+
+            stringstream line(currentLine);
+            string first;
+            line >> first;
+
+            Instruction* inst = MathAndLogic(first, line);
+            if (!inst) inst = MemAndIO(first, line);
+            if (!inst) inst = ShiftAndReset(first, line);
+        
+            if (inst) program.push_back(inst); 
+            else cout << "Warning: Unrecognized command -> " << first << "\n";
+        }
     }
 
     void executeProgram() {
         // Iterate through CustomVector of instructions
         // Call instruction->execute(virtualMachine)
         // Ensure virtualMachine.incrementPC() is called
+        try {
+            for (int i = 0; i < program.size(); i++)
+            {
+                program.at(i) ->execute(virtualMachine);
+                virtualMachine.incrementPC();
+                dumpState();
+            }
+        }
+        catch(const VMException& e)
+        {
+            cout << "\n Error: " << e.getErrorMessage() << "\n Stopping";
+        }
     }
 
     void dumpState() {
@@ -428,6 +609,32 @@ public:
 	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
 	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
 	    // Note: All outputs print number in decimal format.
+
+        cout << "#Begin#\n";
+        
+        cout << "#Registers#";
+        for (int i = 0; i < 8; i++) {
+            cout << format4((int)virtualMachine.getRegister(i).getValue()) << "#";
+        }
+        cout << "\n";
+
+        FlagRegister& f = virtualMachine.getFlags();
+        cout << "#Flags#" << f.getOF() << "#" << f.getUF() << "#" << f.getCF() << "#" << f.getZF() << "#\n";
+
+        cout << "#PC#" << format4((int)virtualMachine.getPC()) << "#\n";
+
+        cout << "#Memory#\n";
+        Memory& mem = virtualMachine.getMemory();
+        for (int row = 0; row < 8; row++) {
+            cout << "#";
+            for (int col = 0; col < 8; col++) {
+                int address = (row * 8) + col;
+                cout << format4((int)mem.read(address)) << "#";
+            }
+            cout << "\n";
+        }
+        
+        cout << "#End#\n";
     }
 };
 
