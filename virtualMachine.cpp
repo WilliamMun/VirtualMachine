@@ -237,18 +237,19 @@ class FlagRegister {
 
         // Getters and setters for flags 
         bool getCF() const { return CF; }
-        void setCF(bool val) { CF = val; }
+        void setCF(int value) { CF = ((value & 0x100) != 0); }
     
         bool getOF() const { return OF; }
-        void setOF(bool val) { OF = val; }
+        void setOF(unsigned char oper1, unsigned char oper2, unsigned char result) { OF = (((~oper1 & ~oper2 & result) & 0x80) != 0); }
 
         bool getUF() const { return UF; }
-        void setUF(bool val) { UF = val; }
+        void setUF(unsigned char oper1, unsigned char oper2, unsigned char result) { UF = (((oper1 & oper2 & ~result) & 0x80) != 0); }
 
         bool getZF() const { return ZF; }
-        void setZF(bool val) { ZF = val; }
+        void setZF(signed char val) { ZF = (val == 0); }
     
         void resetAll() { CF = OF = UF = ZF = false; }
+        void flagArithmeticSetter(int oper1, int oper2, int result);
 };
 
 // ==========================================
@@ -787,6 +788,14 @@ void Memory::displayMemory()
         }
     }
     cout << endl;
+}
+
+void FlagRegister::flagArithmeticSetter(int oper1=0, int oper2=0, int result)
+{
+    setCF(result);
+    setOF(static_cast<unsigned char>(oper1), static_cast<unsigned char>(oper2), static_cast<unsigned char>(result));
+    setUF(static_cast<unsigned char>(oper1), static_cast<unsigned char>(oper2), static_cast<unsigned char>(result));
+    setZF(static_cast<signed char>(result));
 }
 
 // ==========================================
