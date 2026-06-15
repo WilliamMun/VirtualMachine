@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
-
+#include <stdexcept>
+using namespace std; 
 // ==========================================
 // Class Header
 // ==========================================
@@ -19,9 +20,8 @@ class VMException {
 // ==========================================
 // 1. DATA STRUCTURES
 // ==========================================
-
 // ==========================================
-// A. CUSTOM VECTOR 
+// A. CUSTOM VECTOR (Dynamic Array)
 // ==========================================
 template <typename T>
 class CustomVector {
@@ -31,31 +31,76 @@ private:
     int current_size;
 
     // Helper function to resize the array when it gets full
-    void resize();
+    void resize() {
+        capacity *= 2; // Double the capacity
+        T* temp = new T[capacity]; // Create a new, bigger array
+        
+        // Copy old elements to the new array
+        for (int i = 0; i < current_size; i++) {
+            temp[i] = arr[i];
+        }
+        
+        delete[] arr; // Delete the old, small array
+        arr = temp;   // Point to the new array
+    }
 
 public:
-    CustomVector();
-    ~CustomVector();
-
-    // Add an element to the end
-    void push_back(T element);
-	
-    // Remove an element from the end
-    void pop_back(T element);
-
-    // Access an element at a specific index
-    T at(int index) const;
-
-    // Overloaded [] operator to perform bound checking and do resizing 
-    T &operator[](int size); // Read and write access
-    const T &operator[](int size); // Read only access
+    CustomVector() {
+        capacity = 2; // Start with a small capacity
+        current_size = 0;
+        arr = new T[capacity];
+    }
     
-    // Get the current number of elements
-    int size() const;
+    ~CustomVector() {
+        delete[] arr; // Prevent memory leaks
+    }
+
+    void push_back(T element) {
+        // If the array is full, resize it first
+        if (current_size == capacity) {
+            resize();
+        }
+        arr[current_size] = element;
+        current_size++;
+    }
+    
+    // NOTE: Changed to T& (pass by reference) so the popped value is actually returned to the caller
+    void pop_back(T& element) {
+        if (current_size == 0) {
+            throw underflow_error("Vector is empty!");
+        }
+        element = arr[current_size - 1]; // Grab the last element
+        current_size--; // Logically remove it by shrinking the size
+    }
+
+    T at(int index) const {
+        if (index < 0 || index >= current_size) {
+            throw out_of_range("Index out of bounds!");
+        }
+        return arr[index];
+    }
+
+    T &operator[](int index) { 
+        if (index < 0 || index >= current_size) {
+            throw out_of_range("Index out of bounds!");
+        }
+        return arr[index];
+    }
+    
+    const T &operator[](int index) const { 
+        if (index < 0 || index >= current_size) {
+            throw out_of_range("Index out of bounds!");
+        }
+        return arr[index];
+    }
+    
+    int size() const {
+        return current_size;
+    }
 };
 
 // ==========================================
-// B. CUSTOM STACK 
+// B. CUSTOM STACK (Last-In, First-Out)
 // ==========================================
 template <typename T>
 class CustomStack {
@@ -65,23 +110,43 @@ private:
     int maxCapacity;
 
 public:
-    // Constructor with default size of 8 
-    CustomStack(int size = 8);
-    ~CustomStack();
+    CustomStack(int size = 8) {
+        maxCapacity = size;
+        topIndex = -1; 
+        arr = new T[maxCapacity];
+    }
+    
+    ~CustomStack() {
+        delete[] arr;
+    }
 
-    // Push element to the top of the stack
-    void push(T element);
+    void push(T element) {
+        if (isFull()) {
+            throw overflow_error("Stack Overflow! Cannot push.");
+        }
+        topIndex++;
+        arr[topIndex] = element;
+    }
 
-    // Remove and return the top element
-    void pop(T element);
+    void pop(T& element) {
+        if (isEmpty()) {
+            throw underflow_error("Stack Underflow! Cannot pop.");
+        }
+        element = arr[topIndex];
+        topIndex--;
+    }
 
-    // State checks
-    bool isEmpty() const;
-    bool isFull() const;
+    bool isEmpty() const {
+        return topIndex == -1;
+    }
+    
+    bool isFull() const {
+        return topIndex == maxCapacity - 1;
+    }
 };
 
 // ==========================================
-// C. CUSTOM QUEUE 
+// C. CUSTOM QUEUE (First-In, First-Out)
 // ==========================================
 template <typename T>
 class CustomQueue {
@@ -93,22 +158,49 @@ private:
     int maxCapacity;
 
 public:
-    // Constructor with default size
-    CustomQueue(int size = 100);
-    ~CustomQueue();
+    CustomQueue(int size = 100) {
+        maxCapacity = size;
+        arr = new T[maxCapacity];
+        frontIndex = 0;
+        rearIndex = -1;
+        current_size = 0;
+    }
+    
+    ~CustomQueue() {
+        delete[] arr;
+    }
 
-    // Add element to the back of the queue
-    void enqueue(T element);
+    void enqueue(T element) {
+        if (current_size == maxCapacity) {
+            throw overflow_error("Queue is full!");
+        }
+        rearIndex = (rearIndex + 1) % maxCapacity; 
+        arr[rearIndex] = element;
+        current_size++;
+    }
 
-    // Remove and return element from the front
-    void dequeue(T &element);
+    void dequeue(T &element) {
+        if (isEmpty()) {
+            throw underflow_error("Queue is empty!");
+        }
+        element = arr[frontIndex];
+        frontIndex = (frontIndex + 1) % maxCapacity;
+        current_size--;
+    }
 
-    // State checks
-    bool isEmpty() const;
-    int size() const;
+    bool isEmpty() const {
+        return current_size == 0;
+    }
+    
+    int size() const {
+        return current_size;
+    }
 
-    // Clear queue
-    void clear(); 
+    void clear() {
+        frontIndex = 0;
+        rearIndex = -1;
+        current_size = 0;
+    } 
 };
 
 // ==========================================
