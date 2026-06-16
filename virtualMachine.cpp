@@ -1,6 +1,8 @@
 #include <iostream>
 #include <string>
 #include <stdexcept>
+#include <iomanip>
+#include <sstream>
 using namespace std; 
 // ==========================================
 // Class Header
@@ -450,7 +452,7 @@ public:
         DataRegister* reg = cpu.getRegister(regI); //fetch the pointer to register
         FlagRegister* flags = cpu.getFlags(); // fetch the pointer to cpu flag register
         if (op == "INPUT"){ //check instruction is input command
-            cout << "Please enter input value:" << endl;
+            cout << "?" << endl;
             int rawInput; // to store user value
             cin >> rawInput; //read user value
             flags->resetAll(); //clear all cpu flags
@@ -501,6 +503,20 @@ public:
         signed char fResult = static_cast<signed char>(val); // convert the unsigned byte container back to a signed char format 
         reg->setValue(fResult);
         if (fResult == 0) flags->setZF(true); //set zf to true if the final register value = zero
+    }
+};
+
+class ResetFlagsInstruction : public Instruction {
+private:
+    string targetFlag; //cf, of, uf, zf
+public:
+    ResetFlagsInstruction(string flagName) : targetFlag(flagName){}
+    void execute(CPU& cpu) override{
+        FlagRegister* flags = cpu.getFlags();
+        if (targetFlag == "CF") flags->setCF(false);
+        else if (targetFlag == "ZF") flags->setZF(false);
+        else if (targetFlag == "OF") flags->setOF(false);
+        else if (targetFlag == "UF") flags->setUF(false);
     }
 };
 
