@@ -237,19 +237,24 @@ class FlagRegister {
 
         // Getters and setters for flags 
         bool getCF() const { return CF; }
-        void setCF(int value) { CF = ((value & 0x100) != 0); }
+        void setCF(bool value) { CF = value; }
+        bool checkCF(int value) { return ((value & 0x100) != 0); }
     
         bool getOF() const { return OF; }
-        void setOF(unsigned char oper1, unsigned char oper2, unsigned char result) { OF = (((~oper1 & ~oper2 & result) & 0x80) != 0); }
+        void setOF(bool value) { OF = value; }
+        bool checkOF(unsigned char oper1, unsigned char oper2, unsigned char result) { return (((~oper1 & ~oper2 & result) & 0x80) != 0); }
 
         bool getUF() const { return UF; }
-        void setUF(unsigned char oper1, unsigned char oper2, unsigned char result) { UF = (((oper1 & oper2 & ~result) & 0x80) != 0); }
+        void setUF(bool value) { UF = value; } 
+        bool checkUF(unsigned char oper1, unsigned char oper2, unsigned char result) { return (((oper1 & oper2 & ~result) & 0x80) != 0); }
 
         bool getZF() const { return ZF; }
-        void setZF(signed char val) { ZF = (val == 0); }
+        void setZF(bool value) { ZF = value; }
+        bool checkZF(signed char val) { return (val == 0); }
     
         void resetAll() { CF = OF = UF = ZF = false; }
-        void flagArithmeticSetter(int oper1, int oper2, int result);
+        void flagArithmeticChecker(int oper1=0, int oper2=0, int result);
+        void flagSetter(bool OFlag=false, bool UFlag=false, bool ZFlag=false, bool CFlag=false);
 };
 
 // ==========================================
@@ -301,13 +306,13 @@ public:
     void incrementSI() { SI++; }
     void decrementSI() { SI--; }
 
-    void updateMathFlags(int result)
-    {
-        flags.resetAll();
-        if (result == 0) {flags.setZF(true);}
-        if (result > 127) {flags.setOF(true); flags.setCF(true);}
-        if (result < -128) {flags.setUF(true); flags.setCF(true);}
-    }
+    // void updateMathFlags(int result)
+    // {
+    //     flags.resetAll();
+    //     if (result == 0) {flags.setZF(true);}
+    //     if (result > 127) {flags.setOF(true); flags.setCF(true);}
+    //     if (result < -128) {flags.setUF(true); flags.setCF(true);}
+    // }
 };
 
 // ==========================================
@@ -344,18 +349,27 @@ public:
     ArithmeticInstruction(string operation, int dest, int source):ar(operation), destRI(dest), sourceRI(source){}; // creating an instruction, example: ADD,R1,R2
     virtual ~ArithmeticInstruction() override = default;
     void execute(CPU& cpu) override { 
+        
         DataRegister* destReg = cpu.getRegister(destRI); //fetch the pointer to destination register
         FlagRegister* flags = cpu.getFlags();  // fetch the pointer to cpu flag register
+        flags->resetAll(); //clear all cpu flags
+
         int val1 = destReg->getValue(); // read the current int value from destination
         int val2 = cpu.getRegister(sourceRI)->getValue(); //read current int value from source register
-        flags->resetAll(); //clear all cpu flags
         int result = compute(val1, val2); // perform math operation
-        if (result > 255 || result < -256) flags->setCF(true); //set cf if result out of 9 bit signed boundaries
-        if (result > 127) flags->setOF(true); //set of if result exceed 8 bit
-        if (result < -128) flags->setUF(true); //set uf if result below 8 bit
-        signed char fResult = static_cast<signed char>(result); // force 32 bit result into 8 bit
-        destReg->setValue(fResult); // write final result to destination register
-        if (fResult == 0) flags->setZF(true); // set zf if final value = 0
+
+        flags->flagSetter(flags->checkOF(static_cast<unsigned char>(val1), static_cast<unsigned char>(val2), static_cast<unsigned char>(result)), 
+                          flags->checkUF(static_cast<unsigned char>(val1), static_cast<unsigned char>(val2), static_cast<unsigned char>(result)),
+                          flags->checkZF(static_cast<signed char>(result)),
+                          flags->checkCF(result));
+
+        // flags->flagArithmeticChecker(val1, val2, result);
+        // if (result > 255 || result < -256) flags->setCF(true); //set cf if result out of 9 bit signed boundaries
+        // if (result > 127) flags->setOF(true); //set of if result exceed 8 bit
+        // if (result < -128) flags->setUF(true); //set uf if result below 8 bit
+        // signed char fResult = static_cast<signed char>(result); // force 32 bit result into 8 bit
+        // destReg->setValue(fResult); // write final result to destination register
+        // if (fResult == 0) flags->setZF(true); // set zf if final value = 0
     }
 };
 
@@ -378,12 +392,13 @@ public:
         } else {
             throw VMException("Error: Invalid operation."); // if not inc or dec, throw exception 
         }
-        if (result > 255 || result < -256) flags->setCF(true); //set cf if result out of 9 bit signed boundaries
-        if (result > 127) flags->setOF(true); //set of if result exceed 8 bit
-        if (result < -128) flags->setUF(true);//set uf if result below 8 bit
-        signed char fResult = static_cast<signed char>(result); // force 32 bit result into 8 bit
-        reg->setValue(fResult); // write final result to destination register
-        if (fResult == 0) flags->setZF(true); // set zf if final value = 0
+        flags->flagArithmeticChecker();
+        // if (result > 255 || result < -256) flags->setCF(true); //set cf if result out of 9 bit signed boundaries
+        // if (result > 127) flags->setOF(true); //set of if result exceed 8 bit
+        // if (result < -128) flags->setUF(true);//set uf if result below 8 bit
+        // signed char fResult = static_cast<signed char>(result); // force 32 bit result into 8 bit
+        // reg->setValue(fResult); // write final result to destination register
+        // if (fResult == 0) flags->setZF(true); // set zf if final value = 0
     }
 };
 
@@ -439,9 +454,10 @@ public:
             int rawInput; // to store user value
             cin >> rawInput; //read user value
             flags->resetAll(); //clear all cpu flags
-            if (rawInput > 127) flags->setOF(true); //set of if value > 127
-            if (rawInput < -128) flags->setUF(true); // set uf if value < 128
-            if (rawInput == 0) flags->setZF(true); // set zf if value = 0
+            flags->flagSetter((rawInput > 127))
+            // if (rawInput > 127) flags->setOF(true); //set of if value > 127
+            // if (rawInput < -128) flags->setUF(true); // set uf if value < 128
+            // if (rawInput == 0) flags->setZF(true); // set zf if value = 0
             reg->setValue(static_cast<signed char>(rawInput)); //convert 32-bit integer to 8-bit signed byte
         } else if (op == "DISPLAY") { //check instruction is display command
             cout << static_cast<int>(reg->getValue()) << endl;
@@ -790,12 +806,20 @@ void Memory::displayMemory()
     cout << endl;
 }
 
-void FlagRegister::flagArithmeticSetter(int oper1=0, int oper2=0, int result)
+void FlagRegister::flagArithmeticChecker(int oper1=0, int oper2=0, int result)
 {
-    setCF(result);
-    setOF(static_cast<unsigned char>(oper1), static_cast<unsigned char>(oper2), static_cast<unsigned char>(result));
-    setUF(static_cast<unsigned char>(oper1), static_cast<unsigned char>(oper2), static_cast<unsigned char>(result));
-    setZF(static_cast<signed char>(result));
+    checkCF(result);
+    checkOF(static_cast<unsigned char>(oper1), static_cast<unsigned char>(oper2), static_cast<unsigned char>(result));
+    checkUF(static_cast<unsigned char>(oper1), static_cast<unsigned char>(oper2), static_cast<unsigned char>(result));
+    checkZF(static_cast<signed char>(result));
+}
+
+void FlagRegister::flagSetter(bool OFlag=false, bool UFlag=false, bool ZFlag=false, bool CFlag=false)
+{
+    setCF(CFlag);
+    setOF(OFlag);
+    setUF(UFlag);
+    setZF(ZFlag);
 }
 
 // ==========================================
