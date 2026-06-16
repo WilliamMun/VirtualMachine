@@ -498,16 +498,12 @@ public:
         if (count >= 8 && (op == "SHL" || op == "SHR")) val = 0; //shifting left or right by 8 or more positions completely zeroes out the byte
         else if (dCount > 0) {
             if (op == "SHL"){ //shift left
-                flags->setCF((val >> (8 - dCount)) & 1); //isolate and capture the last bit pushed out from the left into cf
                 val = val << dCount; // push bit to the left
             }else if (op == "SHR"){ //shift right
-                flags->setCF((val >> (dCount - 1)) & 1); // isolate and capture the last bit pushed out from the right into cf
                 val = val >> dCount; //push bit to the right
             }else if (op == "ROL") { //rotate left
-                flags->setCF((val >> (8 - dCount)) & 1);  // cf mirrors the last bit moving out from the left that loops around to the right         
                 val = (val << dCount) | (val >> (8 - dCount));      
             }else if (op == "ROR"){ //rotate right
-                flags->setCF((val >> (dCount - 1)) & 1); // cf mirrors the last bit moving out from the right that loops around to the left
                 val = (val >> dCount) | (val << (8 - dCount));
             }
         }
