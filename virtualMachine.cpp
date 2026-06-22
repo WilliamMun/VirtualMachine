@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <iomanip>
 #include <sstream>
+#include <fstream>
 using namespace std; 
 // ==========================================
 // Class Header
@@ -309,6 +310,16 @@ public:
     void incrementSI() { SI++; }
     void decrementSI() { SI--; }
 
+    void pushToStack(signed char value) {
+        systemStack.push(value);
+        incrementSI(); //assignment requires si to increment on push
+    }
+
+    void popFromStack(signed char& value) {
+        systemStack.pop(value); // stack will throw underflow error if empty
+        decrementSI(); //assignment requires SI to decrement on pop
+    }
+
     // void updateMathFlags(int result)
     // {
     //     flags.resetAll();
@@ -538,7 +549,7 @@ private:
     CPU virtualMachine; // Composition 
     CustomVector<Instruction*> program; // Polymorphic storage 
 
-    bool isBlankLine(std::string dummy)
+    bool isBlankLine(string dummy)
     {
         if (dummy.empty()) return true;
         for(int i=0; i < dummy.length(); i++)
@@ -558,25 +569,24 @@ private:
         return belt.str();
     }
 
-    int numberReg(std::string dummy)
+    int numberReg(string dummy)
     {
         if(dummy.empty()) return 0;
         if(dummy[0] == 'R' || dummy[0] == 'r')
         {
-            std::string justNumber = dummy.substr(1);
+            string justNumber = dummy.substr(1);
             return stoi(justNumber);
         }
         return 0;
     }
 
-    Instruction* MathAndLogic(const std::string& first, std::stringstream& rest)
+    Instruction* MathAndLogic(const string& first, stringstream& rest)
     {
-        std::string dest,value;
+        string dest,value;
 
         if (first == "INC" || first == "DEC") {
             rest >> dest;
-            if (first == "INC") return new IncInstruction(numberReg(dest));
-            return new DecInstruction(numberReg(dest));
+            return new IncDecInstruction(first, numberReg(dest));
         }
         
         if (first != "ADD" && first != "SUB" && first != "MUL" && first != "DIV" && first != "MOV") return nullptr;
@@ -591,72 +601,71 @@ private:
         int reg = numberReg(dest);
         
         if (first == "MOV") {
-            if (value[0] == 'R' || value[0] == 'r') return new MovRegInstruction(reg, numberReg(value));
-            return new MovImmInstruction(reg, stoi(value));
-        }
-        if (first == "ADD") return new AddImmInstruction(reg, stoi(value));
-        if (first == "SUB") return new SubImmInstruction(reg, stoi(value));
-        if (first == "MUL") return new MulImmInstruction(reg, stoi(value));
-        if (first == "DIV") return new DivImmInstruction(reg, stoi(value));
-        
-        return nullptr;
+            if (value.front() == '[') {
+                // Register indirect [R1]
+                string inner = value.substr(1, value.length() - 2);
+                return new MoveInstruction(3, reg, numberReg(inner));
+            }
+            else if (value[0] == 'R' || value[0] == 'r'){
+                // Register to register
+                return new MoveInstruction(2, reg, numberReg(value));
+            }
+            // immediate to register
+            return new MoveInstruction(1, reg, stoi(value));
+    }
+    // arithmetic instructions on register directly
+    return new ArithmeticInstruction(first, reg, numberReg(value));
     }
 
     Instruction* MemAndIO(const string& first, stringstream& rest) {
-        string a, b;
-        if (first == "INPUT") { rest >> a; return new InputInstruction(numberReg(a)); }
-        if (first == "DISPLAY") { rest >> a; return new DisplayInstruction(numberReg(a)); }
-        if (first == "PUSH") { rest >> a; return new PushInstruction(numberReg(a)); }
-        if (first == "POP") { rest >> a; return new PopInstruction(numberReg(a)); }
-        
-        if (first == "LOAD") {
-            rest >> a >> b;
-            
-            // Clean 'a' (Remove the comma)
-            if (a.back() == ',') a.pop_back();
-            
-            // Clean 'b' (Remove both square brackets for memory addressing)
-            if (b.front() == '[') b.erase(0, 1);
-            if (b.back() == ']') b.pop_back();
-            
-            if (b[0] == 'R' || b[0] == 'r') return new LoadRegAddrInstruction(numberReg(a), numberReg(b));
-            return new LoadImmAddrInstruction(numberReg(a), stoi(b));
+        string a,b;
+        if (first == "INPUT" || first == "DISPLAY"){
+            rest >> a;
+            return new IOInstruction(first, numberReg(a));
         }
-        
-        if (first == "STORE") {
+
+        if (first == "PUSH" || first == "POP"){
+            cout << "Warning" << first << "not implemented yet";
+            return nullptr;
+        }
+
+        if (first == "LOAD"){
             rest >> a >> b;
-            
-            // Clean 'a' (Remove the comma)
-            if (a.back() == ',') a.pop_back();
-            
-            // Check if 'a' is an indirect address (e.g., "[R2]")
-            if (a.front() == '[') {
-                a.erase(0, 1); 
-                if (a.back() == ']') a.pop_back();
-                return new StoreRegAddrInstruction(numberReg(a), numberReg(b));
+            if (a.back() == ',') {a.pop_back();}
+
+            if (b.front() == '[') {b = b.substr(1, b.length() -2);}
+
+            if (b[0] == 'R' || b[0] == 'r') return new MoveInstruction(3, numberReg(a), numberReg(b));
+            return new MoveInstruction(4, numberReg(a), stoi(b));
+        }
+
+        if (first == "STORE"){
+            rest >> a >> b;
+            if (a.back() == ',') {a.pop_back();}
+            if (b.front() == '['){
+                a = a .substr(1, a.length() - 2);
+                return new MoveInstruction(6, numberReg(a), numberReg(b));
             }
-            return new StoreInstruction(stoi(a), numberReg(b));
+            return new MoveInstruction(5, stoi(a), numberReg(b));
         }
         return nullptr;
     }
 
     Instruction* ShiftAndReset(const string& first, stringstream& rest) {
-        string a, b;
-        if (first == "RESET") { rest >> a; return new ResetInstruction(a); }
+        string a,b;
+        if (first == "RESET"){
+            rest >> a;
+            return new ResetFlagsInstruction(a);
+        }
+
         if (first != "SHL" && first != "SHR" && first != "ROL" && first != "ROR") return nullptr;
-        
+
         rest >> a >> b;
-        
-        // Clean 'a' (Remove the comma)
-        if (a.back() == ',') a.pop_back();
-        
-        int reg = numberReg(a), count = stoi(b);
-        
-        if (first == "SHL") return new ShlInstruction(reg, count);
-        if (first == "SHR") return new ShrInstruction(reg, count);
-        if (first == "ROL") return new RolInstruction(reg, count);
-        if (first == "ROR") return new RorInstruction(reg, count);
-        return nullptr;
+
+        if (a.back() == ','){a.pop_back();}
+        int reg = numberReg(a);
+        int count = stoi(b);
+        return new ShiftInstruction(first, reg, count);
     }
 
 public:
@@ -668,7 +677,7 @@ public:
         {delete program.at(i);}
     }
 
-    void loadProgram(const std::string& filename) {
+    void loadProgram(const string& filename) {
         // Read .asm file line by line 
         // Decode strings into Instruction objects
         // Store in CustomVector
@@ -695,13 +704,13 @@ public:
             string currentLine;
             lineQueue.dequeue(currentLine);
 
-            stringstream line(currentLine);
+            stringstream lineStream(currentLine);
             string first;
-            line >> first;
+            lineStream >> first;
 
-            Instruction* inst = MathAndLogic(first, line);
-            if (!inst) inst = MemAndIO(first, line);
-            if (!inst) inst = ShiftAndReset(first, line);
+            Instruction* inst = MathAndLogic(first, lineStream);
+            if (!inst) inst = MemAndIO(first, lineStream);
+            if (!inst) inst = ShiftAndReset(first, lineStream);
         
             if (inst) program.push_back(inst); 
             else cout << "Warning: Unrecognized command -> " << first << "\n";
@@ -727,48 +736,36 @@ public:
     }
 
     void dumpState() {
-        // Printing Format After Executing Each Line of Assembly Code: 
-	    // #ProgramCounter#0000#
-	    // #Flags#Overflow#0#Underflow#0#Carry#0#Zero#0#
-        // #Register#R1#0000#R2#0000#R3#0000#R4#0000#R5#0000#R6#0000#R7#0000#R8#0000#
-        // #Memory#
-	    // #0000#0000#0000#0000#0000#0000#0000#0000#  
-	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
-	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
-	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
-	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
-	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
-	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
-	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
-	    // Note: All outputs print number in decimal format.
-
         cout << "#Begin#\n";
         
         cout << "#Registers#";
         for (int i = 0; i < 8; i++) {
-            cout << format4((int)virtualMachine.getRegister(i).getValue()) << "#";
+            // getRegister returns a pointer, use ->
+            cout << format4((int)virtualMachine.getRegister(i)->getValue()) << "#";
         }
         cout << "\n";
 
-        FlagRegister& f = virtualMachine.getFlags();
-        cout << "#Flags#" << f.getOF() << "#" << f.getUF() << "#" << f.getCF() << "#" << f.getZF() << "#\n";
+        // getFlags returns a pointer
+        FlagRegister* f = virtualMachine.getFlags();
+        cout << "#Flags#OF#" << f->getOF() << "#UF#" << f->getUF() << "#CF#" << f->getCF() << "#ZF#" << f->getZF() << "#\n";
 
         cout << "#PC#" << format4((int)virtualMachine.getPC()) << "#\n";
 
         cout << "#Memory#\n";
-        Memory& mem = virtualMachine.getMemory();
+        // getMemory returns a pointer
+        Memory* mem = virtualMachine.getMemory();
         for (int row = 0; row < 8; row++) {
             cout << "#";
             for (int col = 0; col < 8; col++) {
                 int address = (row * 8) + col;
-                cout << format4((int)mem.read(address)) << "#";
+                cout << format4((int)mem->read(address)) << "#";
             }
             cout << "\n";
         }
         
         cout << "#End#\n";
-    }
-};
+        }
+    };
 
 // ==========================================
 // Class Implementation
