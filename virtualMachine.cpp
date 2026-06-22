@@ -641,7 +641,20 @@ private:
     }
 
     Instruction* ShiftAndReset(const string& first, stringstream& rest) {
-        
+        string a,b;
+        if (first == "RESET"){
+            rest >> a;
+            return new ResetFlagsInstruction(a);
+        }
+
+        if (first != "SHL" && first != "SHR" && first != "ROL" && first != "ROR") return nullptr;
+
+        rest >> a >> b;
+
+        if (a.back() == ','){a.pop_back();}
+        int reg = numberReg(a);
+        int count = stoi(b);
+        return new ShiftInstruction(first, reg, count);
     }
 
 public:
