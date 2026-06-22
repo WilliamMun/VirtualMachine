@@ -309,6 +309,16 @@ public:
     void incrementSI() { SI++; }
     void decrementSI() { SI--; }
 
+    void pushToStack(signed char value) {
+        systemStack.push(value);
+        incrementSI(); //assignment requires si to increment on push
+    }
+
+    void popFromStack(signed char& value) {
+        systemStack.pop(value); // stack will throw underflow error if empty
+        decrementSI(); //assignment requires SI to decrement on pop
+    }
+
     // void updateMathFlags(int result)
     // {
     //     flags.resetAll();
@@ -725,48 +735,35 @@ public:
     }
 
     void dumpState() {
-        // Printing Format After Executing Each Line of Assembly Code: 
-	    // #ProgramCounter#0000#
-	    // #Flags#Overflow#0#Underflow#0#Carry#0#Zero#0#
-        // #Register#R1#0000#R2#0000#R3#0000#R4#0000#R5#0000#R6#0000#R7#0000#R8#0000#
-        // #Memory#
-	    // #0000#0000#0000#0000#0000#0000#0000#0000#  
-	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
-	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
-	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
-	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
-	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
-	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
-	    // #0000#0000#0000#0000#0000#0000#0000#0000# 
-	    // Note: All outputs print number in decimal format.
-
         cout << "#Begin#\n";
         
         cout << "#Registers#";
         for (int i = 0; i < 8; i++) {
-            cout << format4((int)virtualMachine.getRegister(i).getValue()) << "#";
+            // getRegister returns a pointer, use ->
+            cout << format4((int)virtualMachine.getRegister(i)->getValue()) << "#";
         }
         cout << "\n";
 
-        FlagRegister& f = virtualMachine.getFlags();
-        cout << "#Flags#" << f.getOF() << "#" << f.getUF() << "#" << f.getCF() << "#" << f.getZF() << "#\n";
+        // getFlags returns a pointer
+        FlagRegister* f = virtualMachine.getFlags();
+        cout << "#Flags#OF#" << f->getOF() << "#UF#" << f->getUF() << "#CF#" << f->getCF() << "#ZF#" << f->getZF() << "#\n";
 
         cout << "#PC#" << format4((int)virtualMachine.getPC()) << "#\n";
 
         cout << "#Memory#\n";
-        Memory& mem = virtualMachine.getMemory();
+        // getMemory returns a pointer
+        Memory* mem = virtualMachine.getMemory();
         for (int row = 0; row < 8; row++) {
             cout << "#";
             for (int col = 0; col < 8; col++) {
                 int address = (row * 8) + col;
-                cout << format4((int)mem.read(address)) << "#";
+                cout << format4((int)mem->read(address)) << "#";
             }
             cout << "\n";
         }
         
         cout << "#End#\n";
-    }
-};
+    };
 
 // ==========================================
 // Class Implementation
