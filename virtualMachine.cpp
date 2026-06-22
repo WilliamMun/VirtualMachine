@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <iomanip>
 #include <sstream>
+#include <fstream>
 using namespace std; 
 // ==========================================
 // Class Header
@@ -763,6 +764,7 @@ public:
         }
         
         cout << "#End#\n";
+        }
     };
 
 // ==========================================
