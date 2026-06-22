@@ -284,40 +284,42 @@ class Memory {
 // ==========================================
 
 // Contains registers, memory, PC, and executes instructions
+// holds data, keep track where the program is, manages temporary storage
 class CPU {
 private:
     DataRegister R[8];     // R0 to R7 
-    FlagRegister flags;       // Aggregated flags
+    FlagRegister flags;       // Aggregated flags (0 or 1 signals)
     Memory memory;            // Composed memory
  
-    unsigned char PC;         // Program Counter (1 byte, starts at 0)
-    unsigned char SI;         // Stack Index (1 byte, starts at 0)
+    unsigned char PC;         // Program Counter, remembers which line of the assembly program is reading (1 byte, starts at 0)
+    unsigned char SI;         // Stack Index, count of how many things piled up (1 byte, starts at 0)
  
-    CustomStack<signed char> systemStack;
+    CustomStack<signed char> systemStack; // Temporary store number
 
 public:
-    CPU() : PC(0), SI(0) {}
+    CPU() : PC(0), SI(0) {} // sets the program counter and stack index to 0 when cpu is first created
 
     // Getters to allow instructions to manipulate CPU state
-    DataRegister* getRegister(int index) { return &R[index]; }
-    FlagRegister* getFlags() { return &flags; }
-    Memory* getMemory() { return &memory; }
+    DataRegister* getRegister(int index) { return &R[index]; } // returns pointer to a specific data register, pointer gives the runner the memory address of the pointer
+    FlagRegister* getFlags() { return &flags; } // returns pointer to flag registers so the runner can check or update them
+    Memory* getMemory() { return &memory; } // returns a pointer to the main memory so the runner can load or store data
  
-    unsigned char getPC() const { return PC; }
-    void incrementPC() { PC++; }
+    unsigned char getPC() const { return PC; } // return the current line the Program Counter is on, const prevent changes on PC value
+    void incrementPC() { PC++; } // runner calls this after finishing an instruction, move program counter forward by 1, cpu knows to move to next line
  
-    unsigned char getSI() const { return SI; }
-    void incrementSI() { SI++; }
-    void decrementSI() { SI--; }
+    unsigned char getSI() const { return SI; } //return the current number of items piled in the stack
+    void incrementSI() { SI++; } // increases stack index by 1 when a new item is added to stack
+    void decrementSI() { SI--; } // decreases stack index by 1 when a new item is removed from stack
 
     void pushToStack(signed char value) {
-        systemStack.push(value);
-        incrementSI(); //assignment requires si to increment on push
+        systemStack.push(value); // puts the data into the customstack
+        incrementSI(); //updates counter so the cpu knows
     }
 
+    // removes the top value from stack and gives it back to caller, & modifies the variable that runner passed into function directly
     void popFromStack(signed char& value) {
-        systemStack.pop(value); // stack will throw underflow error if empty
-        decrementSI(); //assignment requires SI to decrement on pop
+        systemStack.pop(value); // takes the data off the top of customstack, will crash/throw an error if empty
+        decrementSI(); //update counter so cpu knows stack is smaller
     }
 
     // void updateMathFlags(int result)
