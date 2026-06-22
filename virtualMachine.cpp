@@ -548,106 +548,124 @@ public:
 // Loads programs, decodes instructions, delegates execution to CPU 
 class Runner {
 private:
-    CPU virtualMachine; // Composition 
-    CustomVector<Instruction*> program; // Polymorphic storage 
+    CPU virtualMachine; // Composition, actual virtual machine that will do math and store data
+    CustomVector<Instruction*> program; // dynamic array vector that hold pointers to instructions
+    // uses polymorphism, holds generic instruction pointers, but they will point to specific types
 
-    bool isBlankLine(string dummy)
+    // helper function, checks if a line is empty or just spaces
+    bool isBlankLine(string dummy) 
     {
-        if (dummy.empty()) return true;
-        for(int i=0; i < dummy.length(); i++)
+        if (dummy.empty()) return true; // if there is zero character, return blank
+        for(int i=0; i < dummy.length(); i++) // look at every character in the string
         {
-            if(dummy[i] != ' ' && dummy[i]!= '\t' && dummy[i]!= '\r' && dummy[i]!= '\n')
+            if(dummy[i] != ' ' && dummy[i]!= '\t' && dummy[i]!= '\r' && dummy[i]!= '\n') // find anything that is not a space, tab or enter key, then not blank
             return false;
         }
-        return true;
+        return true; // if only found spaces or tabs, it is blank
     }
 
-    // Helper function to pad numbers with leading zeroes
+    // Helper function to pad numbers with leading zeroes (eg. 5 into 0005)
     string format4(int num) {
         stringstream belt;
         // setfill('0') tells it to use zeroes. 
         // setw(4) tells it to make sure the string is exactly 4 characters wide.
         belt << setfill('0') << setw(4) << num;
-        return belt.str();
+        return belt.str(); //  convert the stream back into a normal string
     }
 
+    // helper function, extracts the number from a register (eg. R1 becomes 1)
     int numberReg(string dummy)
     {
-        if(dummy.empty()) return 0;
-        if(dummy[0] == 'R' || dummy[0] == 'r')
+        if(dummy.empty()) return 0; // if zero character, returns 0
+        if(dummy[0] == 'R' || dummy[0] == 'r') // check if the first letter is an R or r
         {
-            string justNumber = dummy.substr(1);
-            return stoi(justNumber);
+            string justNumber = dummy.substr(1); // extract everything after the R (e.g. grab the 1 from R1)
+            return stoi(justNumber); // convert the string 1 into integer 1
         }
         return 0;
     }
 
+    // acts as translator, the read text from file and figure whih instruction object to create
     Instruction* MathAndLogic(const string& first, stringstream& rest)
     {
         string dest,value;
 
+        // if the command is increment or decrement, only uses 1 register
         if (first == "INC" || first == "DEC") {
-            rest >> dest;
+            rest >> dest; // read the next word (eg. R1)
             return new IncDecInstruction(first, numberReg(dest));
         }
         
+        // if its not INC, DEC, ADD, SUB, MUL, DIV, or MOV, this function cant handle it
         if (first != "ADD" && first != "SUB" && first != "MUL" && first != "DIV" && first != "MOV") return nullptr;
         
+        // for math and mov, read the next two words (destination and value)
         rest >> dest >> value;
         
-        // Clean variable 'dest' (Remove the trailing comma)
+        // clean variable 'dest' (remove the trailing comma)
         if (dest.back() == ',') {
             dest.pop_back(); 
         }
         
-        int reg = numberReg(dest);
+        int reg = numberReg(dest); // convert R1 to 1
         
+        // handle move instructions which have diff modes
         if (first == "MOV") {
             if (value.front() == '[') {
-                // Register indirect [R1]
-                string inner = value.substr(1, value.length() - 2);
+                // Register indirect [R1], we are moving based on a memory address stored in a register
+                string inner = value.substr(1, value.length() - 2); // strip the brackets to get R1
                 return new MoveInstruction(3, reg, numberReg(inner));
             }
             else if (value[0] == 'R' || value[0] == 'r'){
-                // Register to register
+                // Register to register (eg. MOV R1, R2)
                 return new MoveInstruction(2, reg, numberReg(value));
             }
-            // immediate to register
+            // immediate to register (eg. MOV R1, 5)
             return new MoveInstruction(1, reg, stoi(value));
     }
-    // arithmetic instructions on register directly
+    // if wasnt a MOV, it must be basic math operating directly on registers
     return new ArithmeticInstruction(first, reg, numberReg(value));
     }
 
     Instruction* MemAndIO(const string& first, stringstream& rest) {
         string a,b;
+        // input from keyboard or display to screen
         if (first == "INPUT" || first == "DISPLAY"){
             rest >> a;
             return new IOInstruction(first, numberReg(a));
         }
 
+        // stack command
         if (first == "PUSH" || first == "POP"){
             cout << "Warning" << first << "not implemented yet";
             return nullptr;
         }
 
+        // loading from memory into a register
         if (first == "LOAD"){
             rest >> a >> b;
-            if (a.back() == ',') {a.pop_back();}
+            if (a.back() == ',') {a.pop_back();} // clean comma
 
-            if (b.front() == '[') {b = b.substr(1, b.length() -2);}
+            if (b.front() == '[') {b = b.substr(1, b.length() -2);} // clean bracket
 
+            // if loading from an address stored inside a register, eg. Load R1, [R2]
             if (b[0] == 'R' || b[0] == 'r') return new MoveInstruction(3, numberReg(a), numberReg(b));
+
+            // loading direct from a direct memory number, (eg. load R1, 20)
             return new MoveInstruction(4, numberReg(a), stoi(b));
         }
 
+        // storing from a register into a memory
         if (first == "STORE"){
             rest >> a >> b;
-            if (a.back() == ',') {a.pop_back();}
+            if (a.back() == ',') {a.pop_back();} // clean comma
+            
+            // if storing into an address pointed to by a register
             if (b.front() == '['){
-                a = a .substr(1, a.length() - 2);
+                a = a .substr(1, a.length() - 2); // clean brackets
                 return new MoveInstruction(6, numberReg(a), numberReg(b));
             }
+            // storing directly into a specific memory slot (eg. store 20, R3)
             return new MoveInstruction(5, stoi(a), numberReg(b));
         }
         return nullptr;
