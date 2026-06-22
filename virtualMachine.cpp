@@ -666,7 +666,7 @@ public:
         {delete program.at(i);}
     }
 
-    void loadProgram(const std::string& filename) {
+    void loadProgram(const string& filename) {
         // Read .asm file line by line 
         // Decode strings into Instruction objects
         // Store in CustomVector
@@ -693,13 +693,13 @@ public:
             string currentLine;
             lineQueue.dequeue(currentLine);
 
-            stringstream line(currentLine);
+            stringstream lineStream(currentLine);
             string first;
-            line >> first;
+            lineStream >> first;
 
-            Instruction* inst = MathAndLogic(first, line);
-            if (!inst) inst = MemAndIO(first, line);
-            if (!inst) inst = ShiftAndReset(first, line);
+            Instruction* inst = MathAndLogic(first, lineStream);
+            if (!inst) inst = MemAndIO(first, lineStream);
+            if (!inst) inst = ShiftAndReset(first, lineStream);
         
             if (inst) program.push_back(inst); 
             else cout << "Warning: Unrecognized command -> " << first << "\n";
