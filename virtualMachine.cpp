@@ -660,13 +660,13 @@ private:
             rest >> a >> b;
             if (a.back() == ',') {a.pop_back();} // clean comma
             
-            // if storing into an address pointed to by a register
+            // if storing into an address pointed to by a register, eg. store R1, [R2]
             if (b.front() == '['){
-                a = a .substr(1, a.length() - 2); // clean brackets
-                return new MoveInstruction(6, numberReg(a), numberReg(b));
+                b = b.substr(1, b.length() - 2); // clean brackets
+                return new MoveInstruction(6, numberReg(b), numberReg(a));
             }
-            // storing directly into a specific memory slot (eg. store 20, R3)
-            return new MoveInstruction(5, stoi(a), numberReg(b));
+            // storing directly into a specific memory slot (eg. store R3, 20), 20 is the memory address R3 is the register that holds the value to be stored
+            return new MoveInstruction(5, stoi(b), numberReg(a));
         }
         return nullptr;
     }
