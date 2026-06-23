@@ -668,93 +668,101 @@ private:
             // storing directly into a specific memory slot (eg. store R3, 20), 20 is the memory address R3 is the register that holds the value to be stored
             return new MoveInstruction(5, stoi(b), numberReg(a));
         }
-        return nullptr;
+        return nullptr; // return nothing if nothing matches this category
     }
 
     Instruction* ShiftAndReset(const string& first, stringstream& rest) {
         string a,b;
+
+        // clearing the flags
         if (first == "RESET"){
             rest >> a;
             return new ResetFlagsInstruction(a);
         }
 
+        // if its not a shift or rotate command, exit early
         if (first != "SHL" && first != "SHR" && first != "ROL" && first != "ROR") return nullptr;
 
         rest >> a >> b;
 
-        if (a.back() == ','){a.pop_back();}
-        int reg = numberReg(a);
-        int count = stoi(b);
+        if (a.back() == ','){a.pop_back();} //clean comma
+        int reg = numberReg(a); //which register to shift
+        int count = stoi(b); // how many times to shift it
         return new ShiftInstruction(first, reg, count);
     }
 
 public:
-    Runner() {}
+    Runner() {}  // default constructor
 
+    // destructor to clean up dynamic allocated memory, prevent memory leak
     ~Runner() 
     {
         for (int i = 0; i < program.size(); i++)
         {delete program.at(i);}
     }
 
+    // loads asm file, read it, translate into instructions
     void loadProgram(const string& filename) {
-        // Read .asm file line by line 
-        // Decode strings into Instruction objects
-        // Store in CustomVector
-        ifstream file(filename);
+        ifstream file(filename); // open the text file for reading
         if(!file.is_open()){
             cout << "Error: Could not open file" << filename << "\n";
-            exit(1);
+            exit(1); // crash if the file does not exist
         }
 
         //store into queue
         CustomQueue<string> lineQueue;
         string line;
 
+        // read every line from the file, and put it in a queue
         while(getline(file,line))
         {
-            if(isBlankLine(line)) continue;
-            lineQueue.enqueue(line);
+            if(isBlankLine(line)) continue; // skip empty lines
+            lineQueue.enqueue(line); // put the line back at the queue
         }
-        file.close();
+        file.close(); // close the file when done
 
-        //dequeue and put into vector
+        // take lines out the queue one by one, translate them and put them into a vector
         while(!lineQueue.isEmpty())
         {
             string currentLine;
-            lineQueue.dequeue(currentLine);
+            lineQueue.dequeue(currentLine); //take the line from the front of the queue
 
-            stringstream lineStream(currentLine);
+            stringstream lineStream(currentLine); // turn the string into a stream to read word by word
             string first;
-            lineStream >> first;
+            lineStream >> first; // read the first word (eg. ADD)
 
+            // try to translate the instruction by passing it into our 3 parser functions, if the first cant handle it, then returns nullptr, so we try MemAndIO
             Instruction* inst = MathAndLogic(first, lineStream);
             if (!inst) inst = MemAndIO(first, lineStream);
             if (!inst) inst = ShiftAndReset(first, lineStream);
         
+            // if one of the parsers successfully created an instruction, save it
             if (inst) program.push_back(inst); 
             else cout << "Warning: Unrecognized command -> " << first << "\n";
         }
     }
 
+    // loops through the saved instructions and tells the CPU to perform them
     void executeProgram() {
-        // Iterate through CustomVector of instructions
-        // Call instruction->execute(virtualMachine)
-        // Ensure virtualMachine.incrementPC() is called
+        // try-catch blocks protect the program from crashing
         try {
+            // loop through our vector of instructions from top to bottom
             for (int i = 0; i < program.size(); i++)
             {
-                program.at(i) ->execute(virtualMachine);
-                virtualMachine.incrementPC();
-                dumpState();
+                // tell the specific instruction to execute itself on our virtual machine
+                program.at(i) ->execute(virtualMachine); // move the program counter forward by 1
+                virtualMachine.incrementPC(); // move the program counter forward by 1
+                dumpState(); // print the status of the machine after this step
             }
         }
+        // if an error was thrown inside execute(), catch it here and print a safe error message
         catch(const VMException& e)
         {
             cout << "\n Error: " << e.getErrorMessage() << "\n Stopping";
         }
     }
 
+    // prints the exact current status of the CPU and Memory to the screen
     void dumpState() {
         cout << "#Begin#\n";
         
@@ -765,22 +773,25 @@ public:
         }
         cout << "\n";
 
-        // getFlags returns a pointer
+        // print the status of the warning flags
         FlagRegister* f = virtualMachine.getFlags();
         cout << "#Flags#OF#" << f->getOF() << "#UF#" << f->getUF() << "#CF#" << f->getCF() << "#ZF#" << f->getZF() << "#\n";
 
+        // print the current line number the program is on
         cout << "#PC#" << format4((int)virtualMachine.getPC()) << "#\n";
 
         cout << "#Memory#\n";
-        // getMemory returns a pointer
+
+        // print the 64 memory bytes in a nice 8x8 grid
         Memory* mem = virtualMachine.getMemory();
         for (int row = 0; row < 8; row++) {
             cout << "#";
             for (int col = 0; col < 8; col++) {
+                // calculate the exact 1D index (0 to 63) using 2D row/col coordinates
                 int address = (row * 8) + col;
                 cout << format4((int)mem->read(address)) << "#";
             }
-            cout << "\n";
+            cout << "\n"; // new line at the end of each row
         }
         
         cout << "#End#\n";
