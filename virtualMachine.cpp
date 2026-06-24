@@ -67,7 +67,7 @@ public:
         current_size++;
     }
     
-    // NOTE: Changed to T& (pass by reference) so the popped value is actually returned to the caller
+    // FIXME: Remove the parameter. pop_back() will remove the last element in the vector. Note that to remove element using object type destructor also.
     void pop_back(T& element) {
         if (current_size == 0) {
             throw underflow_error("Vector is empty!");
@@ -100,6 +100,18 @@ public:
     int size() const {
         return current_size;
     }
+
+    // TODO: Add a function call erase(). void erase(T index) is to remove element at a specific index. Note that to remove element using object type destructor also.
+    // Function Header:
+    // void erase(T index);
+
+    // TODO: Add a copy constructor   
+    // Function Header: 
+    // CustomVector(const CustomVector<T>& right);
+
+    // TODO: Add a copy assignment operator 
+    // Function Header:
+    // CustomVector& operator=(const CustomVector<T>& right);
 };
 
 // ==========================================
