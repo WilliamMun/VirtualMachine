@@ -117,6 +117,7 @@ public:
 // ==========================================
 // B. CUSTOM STACK (Last-In, First-Out)
 // ==========================================
+// FIXME: Use CustomVector to implement stack, since array is not expandable.
 template <typename T>
 class CustomStack {
 private:
@@ -143,6 +144,7 @@ public:
         arr[topIndex] = element;
     }
 
+    // FIXME: pop() don't need parameter, removes the top element first
     void pop(T& element) {
         if (isEmpty()) {
             throw underflow_error("Stack Underflow! Cannot pop.");
@@ -158,11 +160,16 @@ public:
     bool isFull() const {
         return topIndex == maxCapacity - 1;
     }
+
+    // TODO: Add a function peek() to return the top element of the stack 
+    // Function header:
+    // T peek() const;
 };
 
 // ==========================================
 // C. CUSTOM QUEUE (First-In, First-Out)
 // ==========================================
+// FIXME: Use CustomVector to implement queue, since array is not expandable.
 template <typename T>
 class CustomQueue {
 private:
@@ -207,15 +214,21 @@ public:
         return current_size == 0;
     }
     
+    // FIXME: Remove clear() function, memory handling part done by CustomVector
     int size() const {
         return current_size;
     }
 
+    // FIXME: Remove clear() function, memory handling part done by CustomVector
     void clear() {
         frontIndex = 0;
         rearIndex = -1;
         current_size = 0;
     } 
+
+    // TODO: Add a front() function, to display the front element in the queue
+    // Function Header:
+    // T front() const;
 };
 
 // ==========================================
