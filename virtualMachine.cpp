@@ -164,6 +164,14 @@ public:
     // TODO: Add a function peek() to return the top element of the stack 
     // Function header:
     // T peek() const;
+
+    // TODO: Add a copy constructor   
+    // Function Header: 
+    // CustomStack(const CustomStack<T>& right);
+
+    // TODO: Add a copy assignment operator 
+    // Function Header:
+    // CustomStack& operator=(const CustomStack<T>& right);
 };
 
 // ==========================================
@@ -229,6 +237,14 @@ public:
     // TODO: Add a front() function, to display the front element in the queue
     // Function Header:
     // T front() const;
+
+    // TODO: Add a copy constructor   
+    // Function Header: 
+    // CustomQueue(const CustomQueue<T>& right);
+
+    // TODO: Add a copy assignment operator 
+    // Function Header:
+    // CustomQueue& operator=(const CustomQueue<T>& right);
 };
 
 // ==========================================
