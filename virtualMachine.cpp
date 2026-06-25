@@ -54,8 +54,18 @@ public:
         arr = new T[capacity];
     }
     
+    //destructor
     ~CustomVector() {
         delete[] arr; // Prevent memory leaks
+    }
+
+    CustomVector(const CustomVector& other) {
+        capacity = other.capacity;
+        current_size = other.current_size;
+        arr = new T[capacity]; 
+        for (int i = 0; i < current_size; i++) {
+            arr[i] = other.arr[i];
+        }
     }
 
     void push_back(T element) {
@@ -66,14 +76,28 @@ public:
         arr[current_size] = element;
         current_size++;
     }
-    
     // FIXME: Remove the parameter. pop_back() will remove the last element in the vector. Note that to remove element using object type destructor also.
-    void pop_back(T& element) {
+    void pop_back() {
         if (current_size == 0) {
             throw underflow_error("Vector is empty!");
         }
-        element = arr[current_size - 1]; // Grab the last element
-        current_size--; // Logically remove it by shrinking the size
+        arr[current_size - 1].~T(); 
+        // Logically remove it by shrinking the size
+        current_size--; 
+    }
+
+    CustomVector& operator=(const CustomVector& other) {
+        if (this == &other) return *this; 
+
+        delete[] arr; 
+        capacity = other.capacity;
+        current_size = other.current_size;
+        arr = new T[capacity]; 
+        
+        for (int i = 0; i < current_size; i++) {
+            arr[i] = other.arr[i];
+        }
+        return *this;
     }
 
     T at(int index) const {
