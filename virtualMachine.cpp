@@ -54,6 +54,7 @@ public:
         arr = new T[capacity];
     }
 
+    //destructor
     ~CustomVector() {
         delete[] arr; // Prevent memory leaks
     }
@@ -66,14 +67,15 @@ public:
         arr[current_size] = element;
         current_size++;
     }
-
+    
     // FIXME: Remove the parameter. pop_back() will remove the last element in the vector. Note that to remove element using object type destructor also.
-    void pop_back(T& element) {
+    void pop_back() {
         if (current_size == 0) {
             throw underflow_error("Vector is empty!");
         }
-        element = arr[current_size - 1]; // Grab the last element
-        current_size--; // Logically remove it by shrinking the size
+        arr[current_size - 1].~T(); 
+        // Logically remove it by shrinking the size
+        current_size--; 
     }
 
     T at(int index) const {
@@ -104,14 +106,48 @@ public:
     // TODO: Add a function call erase(). void erase(T index) is to remove element at a specific index. Note that to remove element using object type destructor also.
     // Function Header:
     // void erase(T index);
+    void erase(T index) {
+        if (index < 0 || index >= current_size) {
+            throw out_of_range("Error: Index out of bounds!");
+        }
+        
+        arr[index].~T(); 
+
+        for (int i = index; i < current_size - 1; i++) {
+            arr[i] = arr[i + 1]; 
+        }
+        current_size--;
+    }
 
     // TODO: Add a copy constructor
     // Function Header:
     // CustomVector(const CustomVector<T>& right);
+    CustomVector(const CustomVector<T> & right) {
+        capacity = right.capacity;
+        current_size = right.current_size;
+        arr = new T[capacity]; 
+        for (int i = 0; i < current_size; i++) {
+            arr[i] = right.arr[i];
+        }
+    }
 
     // TODO: Add a copy assignment operator
     // Function Header:
     // CustomVector& operator=(const CustomVector<T>& right);
+    CustomVector& operator=(const CustomVector <T> &right) {
+        if (this == &right) return *this; 
+
+        delete[] arr; 
+
+        capacity = right.capacity;
+        current_size = right.current_size;
+        arr = new T[capacity]; 
+        
+        for (int i = 0; i < current_size; i++) {
+            arr[i] = right.arr[i];
+        }
+        return *this;
+    }
 };
 
 // ==========================================
@@ -121,57 +157,61 @@ public:
 template <typename T>
 class CustomStack {
 private:
-    T* arr;
-    int topIndex;
-    int maxCapacity;
+   CustomVector<T> data;
 
 public:
-    CustomStack(int size = 8) {
-        maxCapacity = size;
-        topIndex = -1;
-        arr = new T[maxCapacity];
-    }
+    //contructor
+    CustomStack() {}
+    
+    //destructor
+    ~CustomStack() {}
 
-    ~CustomStack() {
-        delete[] arr;
+    //copy contructor
+    CustomStack(const CustomStack<T>& right) : data(right.data) {}
+
+    //copy assignment operator
+    CustomStack& operator=(const CustomStack<T>& right) {
+        if (this == &right) return *this; 
+
+        data = right.data; 
+        
+        return *this;
     }
 
     void push(T element) {
-        if (isFull()) {
-            throw overflow_error("Stack Overflow! Cannot push.");
-        }
-        topIndex++;
-        arr[topIndex] = element;
+        
+        data.push_back(element);
     }
 
     // FIXME: pop() don't need parameter, removes the top element first
-    void pop(T& element) {
+    void pop() {
         if (isEmpty()) {
             throw underflow_error("Stack Underflow! Cannot pop.");
         }
-        element = arr[topIndex];
-        topIndex--;
+        
+        data.pop_back();
     }
 
     bool isEmpty() const {
-        return topIndex == -1;
+        return data.size() == 0;
     }
 
     bool isFull() const {
-        return topIndex == maxCapacity - 1;
+        return false;
     }
 
     // TODO: Add a function peek() to return the top element of the stack
     // Function header:
     // T peek() const;
+    T peek() const {
+        if (isEmpty()) {
+            throw underflow_error("Stack is empty! Cannot peek.");
+        }
+        
+        return data[data.size() - 1]; 
+    }
 
-    // TODO: Add a copy constructor
-    // Function Header:
-    // CustomStack(const CustomStack<T>& right);
-
-    // TODO: Add a copy assignment operator
-    // Function Header:
-    // CustomStack& operator=(const CustomStack<T>& right);
+   
 };
 
 // ==========================================
@@ -181,70 +221,58 @@ public:
 template <typename T>
 class CustomQueue {
 private:
-    T* arr;
-    int frontIndex;
-    int rearIndex;
-    int current_size;
-    int maxCapacity;
+    CustomVector<T> data;
 
 public:
-    CustomQueue(int size = 100) {
-        maxCapacity = size;
-        arr = new T[maxCapacity];
-        frontIndex = 0;
-        rearIndex = -1;
-        current_size = 0;
-    }
 
-    ~CustomQueue() {
-        delete[] arr;
-    }
+    //defualt contructor
+    CustomQueue() {}
+    
+    //destructor
+    ~CustomQueue() {}
 
     void enqueue(T element) {
-        if (current_size == maxCapacity) {
-            throw overflow_error("Queue is full!");
-        }
-        rearIndex = (rearIndex + 1) % maxCapacity;
-        arr[rearIndex] = element;
-        current_size++;
+        
+        data.push_back(element);
     }
 
     void dequeue(T &element) {
         if (isEmpty()) {
             throw underflow_error("Queue is empty!");
         }
-        element = arr[frontIndex];
-        frontIndex = (frontIndex + 1) % maxCapacity;
-        current_size--;
+        element = data[0];
+
+        data.erase(0);
     }
 
     bool isEmpty() const {
-        return current_size == 0;
-    }
-
-    // FIXME: Remove clear() function, memory handling part done by CustomVector
-    int size() const {
-        return current_size;
-    }
-
-    // FIXME: Remove clear() function, memory handling part done by CustomVector
-    void clear() {
-        frontIndex = 0;
-        rearIndex = -1;
-        current_size = 0;
+        return data.size() == 0;
     }
 
     // TODO: Add a front() function, to display the front element in the queue
     // Function Header:
     // T front() const;
+    T front() const {
+        if (isEmpty()) {
+            throw underflow_error("Queue is empty!");
+        }
+        // directly see the front 
+        return data[0];
+    }
 
     // TODO: Add a copy constructor
     // Function Header:
     // CustomQueue(const CustomQueue<T>& right);
+    CustomQueue(const CustomQueue<T>& right) : data(right.data) {}
 
     // TODO: Add a copy assignment operator
     // Function Header:
     // CustomQueue& operator=(const CustomQueue<T>& right);
+    CustomQueue& operator=(const CustomQueue<T>& right) {
+        if (this == &right) return *this; 
+        data = right.data; 
+        return *this;
+    }
 };
 
 // ==========================================
