@@ -245,44 +245,63 @@ public:
     }
 };
 
+/**
+ * @brief    A base class representing a general-purpose register
+ * @details  Register class allows operation such as retrieving data from the register and updating the data in register.
+ * @author   Mun William
+ */
 class Register {
     private:
-        signed char value; 
+        // Holds 8 bits data loaded into register.
+        // 'signed char' restrict the data stores in exactly 1 byte, which is the data will only ranged from -128 to 127.
+        signed char value;
 
     public:
-
-        /** 
-         * @brief Constructs a Register object with default value stored in it.
-         * @post The value in register is initialized with value 0.
+        /**
+         * @brief  Default constructor. Constructs a Register object with default value stored in it.
+         * @post   The value in register is initialized with value 0.
+         * @author Mun William
          */
         Register() : value(0) {}
 
         /**
-         * @brief Destroys the Register object and frees allocated memory.
-         * * @note Virtual base destructor ensures derived class destroyed safely when derived class is destroyed via a base pointer, preventing memory leaks.
+         * @brief  Destructor. Destroys the Register object and frees allocated memory.
+         * @note   Virtual base destructor ensures derived class destroyed safely when derived class is destroyed via a base pointer, preventing memory leaks.
+         * @author Mun William
          */
         virtual ~Register() {}
 
         /**
-         * @brief Returns value stored in Register object.
+         * @brief  Getter function. Returns value stored in Register object.
          * @return The internal value as a signed character.
+         * @author Mun William
          */
         signed char getValue() const { return value; }
 
         /**
-         * @brief Update value in Register object.
+         * @brief   Setter function. Update value in Register object.
          * @param v The new signed character to be stored.
+         * @author  Mun William
          */
         void setValue(signed char v) { value = v; }
 };
 
-// Represents R0-R7 registers
+/**
+ * @brief   A derived class from Register representing data register which use to store data.
+ * @details Inherited from Register class. Has public access for public member function in Register class.
+ * @author  Mun William
+ */
 class DataRegister : public Register {
     public:
+        /**
+         * @brief  Default constructor. Constructs DataRegister object by calling Register class default constructor
+         * @post   The data register will be initialized with value 0.
+         * @author Mun William
+         */
         DataRegister() : Register() {}
 };
 
-// Manages individual flag bits (CF, OF, UF, ZF)
+
 class FlagRegister {
     private:
         bool CF, OF, UF, ZF;
