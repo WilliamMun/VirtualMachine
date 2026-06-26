@@ -343,7 +343,7 @@ public:
     FlagRegister* getFlags() { return &flags; } // returns pointer to flag registers so the runner can check or update them
     Memory* getMemory() { return &memory; } // returns a pointer to the main memory so the runner can load or store data
 
-    CustomStack<signed char>& getSystemStack() {return systemStack};
+    CustomStack<signed char>& getSystemStack() {return systemStack;}
 
     unsigned char getPC() const { return PC; } // return the current line the Program Counter is on, const prevent changes on PC value
     void incrementPC() { PC++; } // runner calls this after finishing an instruction, move program counter forward by 1, cpu knows to move to next line
@@ -361,7 +361,7 @@ public:
     void popFromStack(signed char& value) {
         value = systemStack.peek();
         systemStack.pop();
-        incrementSI();
+        decrementSI();
     }
 };
 
@@ -713,9 +713,17 @@ private:
             }
             // immediate to register (eg. MOV R1, 5)
             return new MoveInstruction(1, reg, stoi(value));
-    }
-    // if wasnt a MOV, it must be basic math operating directly on registers
-    return new ArithmeticInstruction(first, reg, numberReg(value));
+        }
+        // if wasnt a MOV, it must be basic math operating
+        // check if the second value is a register (starting with R or r)
+        if (value[0] == 'R' || value[0] == 'r'){
+            // if its a register (eg. add r1, r2)
+            return new ArithmeticInstruction(first, reg, numberReg(value), false);// means not immediate)
+        }
+        // it is an immediate number (eg. add r1, 6)
+        else {
+            return new ArithmeticInstruction(first, reg, stoi(value), true);} // means its immediate
+            // to be changed after zr implement
     }
 
     Instruction* MemAndIO(const string& first, stringstream& rest) {
@@ -746,6 +754,7 @@ private:
 
             // loading direct from a direct memory number, (eg. load R1, 20)
             return new LoadStoreInstruction(1, numberReg(a), stoi(b));
+            }
         }
 
         // storing from a register into a memory
@@ -758,12 +767,14 @@ private:
                 b = b.substr(1, b.length() - 2); // clean brackets
                 return new LoadStoreInstruction(3, numberReg(b), numberReg(a));
             }
-            else if (a[0] == 'R' || a[0 == 'r']) {
+            else if (a[0] == 'R' || a[0]== 'r') {
             // storing directly into a specific memory slot (eg. store R3, 20), 20 is the memory address R3 is the register that holds the value to be stored
-            return new LoadStoreInstruction(2, numberReg(a), stoi(b));}
+            return new LoadStoreInstruction(2, numberReg(a), stoi(b));
+            }
             // stores into memory slot (eg. store 20, R3), this also stores the value in register 3 to memory 20
             else  {
-                return new LoadStoreInstruction(2, numberReg(b), stoi(a)); }
+                return new LoadStoreInstruction(2, numberReg(b), stoi(a));
+            }
         }
         return nullptr; // return nothing if nothing matches this category
     }
