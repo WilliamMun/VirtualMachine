@@ -5,13 +5,7 @@
 #include <sstream>
 #include <fstream>
 using namespace std;
-// ==========================================
-// Class Header
-// ==========================================
 
-// ==========================================
-// EXCEPTION HANDLING
-// ==========================================
 class VMException {
     private:
         const char* errorMessage;
@@ -20,229 +14,89 @@ class VMException {
         const char* getErrorMessage() const { return errorMessage; }
 };
 
-// ==========================================
-// 1. DATA STRUCTURES
-// ==========================================
-// ==========================================
-// A. CUSTOM VECTOR (Dynamic Array)
-// ==========================================
 template <typename T>
 class CustomVector {
-private:
-    T* arr;
-    int capacity;
-    int current_size;
+    private:
+        T* arr;
+        int capacity;
+        int current_size;
 
-    // Helper function to resize the array when it gets full
-    void resize() {
-        capacity *= 2; // Double the capacity
-        T* temp = new T[capacity]; // Create a new, bigger array
+        // Helper function to resize the array when it gets full
+        void resize();
 
-        // Copy old elements to the new array
-        for (int i = 0; i < current_size; i++) {
-            temp[i] = arr[i];
-        }
+    public:
 
-        delete[] arr; // Delete the old, small array
-        arr = temp;   // Point to the new array
-    }
+        CustomVector(); 
 
-public:
-    CustomVector() {
-        capacity = 2; // Start with a small capacity
-        current_size = 0;
-        arr = new T[capacity];
-    }
+        ~CustomVector() { delete[] arr; } // Prevent memory leaks
 
-    //destructor
-    ~CustomVector() {
-        delete[] arr; // Prevent memory leaks
-    }
+        CustomVector(const CustomVector<T>& right);
 
-    void push_back(T element) {
-        // If the array is full, resize it first
-        if (current_size == capacity) {
-            resize();
-        }
-        arr[current_size] = element;
-        current_size++;
-    }
+        void push_back(T element);
 
-    void pop_back() {
-        if (current_size == 0) {
-            throw underflow_error("Vector is empty!");
-        }
-        arr[current_size - 1].~T();
-        // Logically remove it by shrinking the size
-        current_size--;
-    }
+        void pop_back();
 
-    T at(int index) const {
-        if (index < 0 || index >= current_size) {
-            throw out_of_range("Index out of bounds!");
-        }
-        return arr[index];
-    }
+        T at(int index) const;
 
-    T &operator[](int index) {
-        if (index < 0 || index >= current_size) {
-            throw out_of_range("Index out of bounds!");
-        }
-        return arr[index];
-    }
+        T &operator[](int index);
 
-    const T &operator[](int index) const {
-        if (index < 0 || index >= current_size) {
-            throw out_of_range("Index out of bounds!");
-        }
-        return arr[index];
-    }
+        int size() const { return current_size; }
 
-    int size() const {
-        return current_size;
-    }
+        void erase(int index);
 
-    void erase(int index) { // FIXME: Change template data type T to int since index is always an integer.
-        if (index < 0 || index >= current_size) {
-            throw out_of_range("Error: Index out of bounds!");
-        }
+        const T &operator[](int index) const;
 
-        arr[index].~T();
-
-        for (int i = index; i < current_size - 1; i++) {
-            arr[i] = arr[i + 1];
-        }
-        current_size--;
-    }
-
-    CustomVector(const CustomVector<T> & right) {
-        capacity = right.capacity;
-        current_size = right.current_size;
-        arr = new T[capacity];
-        for (int i = 0; i < current_size; i++) {
-            arr[i] = right.arr[i];
-        }
-    }
-
-    CustomVector& operator=(const CustomVector <T> &right) {
-        if (this == &right) return *this;
-
-        delete[] arr;
-
-        capacity = right.capacity;
-        current_size = right.current_size;
-        arr = new T[capacity];
-
-        for (int i = 0; i < current_size; i++) {
-            arr[i] = right.arr[i];
-        }
-        return *this;
-    }
+        CustomVector& operator=(const CustomVector<T> &right);
 };
 
-// ==========================================
-// B. CUSTOM STACK (Last-In, First-Out)
-// ==========================================
 template <typename T>
 class CustomStack {
-private:
-   CustomVector<T> data;
+    private:
+        CustomVector<T> data;
 
-public:
-    //contructor
-    CustomStack() {}
+    public:
+    
+        CustomStack() {}
 
-    //destructor
-    ~CustomStack() {}
+        ~CustomStack() {}
 
-    //copy contructor
-    CustomStack(const CustomStack<T>& right) : data(right.data) {}
+        CustomStack(const CustomStack<T>& right) : data(right.data) {}
 
-    //copy assignment operator
-    CustomStack& operator=(const CustomStack<T>& right) {
-        if (this == &right) return *this;
-        data = right.data;
-        return *this;
-    }
+        CustomStack& operator=(const CustomStack<T>& right); 
 
-    void push(T element) {
-        data.push_back(element);
-    }
+        void push(T element) { data.push_back(element); }
 
-    void pop() {
-        if (isEmpty()) {
-            throw underflow_error("Stack Underflow! Cannot pop.");
-        }
-        data.pop_back();
-    }
+        void pop();
 
-    bool isEmpty() const {
-        return data.size() == 0;
-    }
+        bool isEmpty() const { return data.size() == 0;}
 
-    bool isFull() const {
-        return true; // FIXME: Change to true. By default this expression (stack.isFull()) will means is the stack is full?
-                      // Then you should return true if the stack is full; false is the stack is not full.
-    }
+        bool isFull() const { return true; }
 
-    T peek() const {
-        if (isEmpty()) {
-            throw underflow_error("Stack is empty! Cannot peek.");
-        }
-        return data[data.size() - 1];
-    }
-
-
+        T peek() const; 
 };
 
-// ==========================================
-// C. CUSTOM QUEUE (First-In, First-Out)
-// ==========================================
 template <typename T>
 class CustomQueue {
-private:
-    CustomVector<T> data;
+    private:
+        CustomVector<T> data;
 
-public:
+    public:
 
-    //defualt contructor
-    CustomQueue() {}
+        CustomQueue() {}
 
-    //destructor
-    ~CustomQueue() {}
+        ~CustomQueue() {}
 
-    void enqueue(T element) {
-        data.push_back(element);
-    }
+        CustomQueue(const CustomQueue<T>& right) : data(right.data) {}
 
-    // FIXME: dequeue() don't need parameter, same as pop(), since by default dequeue removes the front element in the queue.
-    void dequeue() {
-        if (isEmpty()) {
-            throw underflow_error("Queue is empty!");
-        }
-        element = data[0];
-        data.erase(0);
-    }
+        void enqueue(T element) { data.push_back(element); }
 
-    bool isEmpty() const {
-        return data.size() == 0;
-    }
+        void dequeue(); 
 
-    T front() const {
-        if (isEmpty()) {
-            throw underflow_error("Queue is empty!");
-        }
-        // directly see the front
-        return data[0];
-    }
+        bool isEmpty() const { return data.size() == 0; }
 
-    CustomQueue(const CustomQueue<T>& right) : data(right.data) {}
+        T front() const;
 
-    CustomQueue& operator=(const CustomQueue<T>& right) {
-        if (this == &right) return *this;
-        data = right.data;
-        return *this;
-    }
+        CustomQueue& operator=(const CustomQueue<T>& right);
 };
 
 /**
@@ -919,6 +773,176 @@ public:
 // ==========================================
 // Class Implementation
 // ==========================================
+template <typename T>
+CustomVector<T>::CustomVector()
+{
+    capacity = 2; // Start with a small capacity
+    current_size = 0;
+    arr = new T[capacity];
+}
+
+template <typename T>
+CustomVector<T>::CustomVector(const CustomVector<T>& right)
+{
+    capacity = right.capacity;
+    current_size = right.current_size;
+    arr = new T[capacity];
+    for (int i = 0; i < current_size; i++) {
+        arr[i] = right.arr[i];
+    }
+}
+
+template <typename T>
+void CustomVector<T>::push_back(T element)
+{
+    // If the array is full, resize it first
+    if (current_size == capacity) {
+        resize();
+    }
+    arr[current_size] = element;
+    current_size++;
+}
+
+template <typename T>
+void CustomVector<T>::pop_back()
+{
+    if (current_size == 0) {
+        throw underflow_error("Vector is empty!");
+    }
+    arr[current_size - 1].~T();
+    // Logically remove it by shrinking the size
+    current_size--;
+}
+
+template <typename T>
+T CustomVector<T>::at(int index) const
+{
+    if (index < 0 || index >= current_size) {
+        throw out_of_range("Index out of bounds!");
+    }
+    return arr[index];
+}
+
+template <typename T>
+const T& CustomVector<T>::operator[](int index) const
+{
+    if (index < 0 || index >= current_size) {
+        throw out_of_range("Index out of bounds!");
+    }
+    return arr[index];
+}
+
+template <typename T>
+void CustomVector<T>::erase(int index)
+{
+    if (index < 0 || index >= current_size) {
+        throw out_of_range("Error: Index out of bounds!");
+    }
+
+    arr[index].~T();
+
+    for (int i = index; i < current_size - 1; i++) {
+        arr[i] = arr[i + 1];
+    }
+    current_size--;
+}
+
+template <typename T>
+T& CustomVector<T>::operator[](int index)
+{
+    if (index < 0 || index >= current_size) {
+        throw out_of_range("Index out of bounds!");
+    }
+    return arr[index];
+}
+
+template<typename T> 
+CustomVector<T> &CustomVector<T>::operator=(const CustomVector<T> &right)
+{
+    if (this == &right) return *this;
+
+    delete[] arr;
+
+    capacity = right.capacity;
+    current_size = right.current_size;
+    arr = new T[capacity];
+
+    for (int i = 0; i < current_size; i++) {
+        arr[i] = right.arr[i];
+    }
+    return *this;
+}
+
+template <typename T>
+void CustomVector<T>::resize()
+{
+    capacity *= 2; // Double the capacity
+    T* temp = new T[capacity]; // Create a new, bigger array
+
+    // Copy old elements to the new array
+    for (int i = 0; i < current_size; i++) {
+        temp[i] = arr[i];
+    }
+
+    delete[] arr; // Delete the old, small array
+    arr = temp;   // Point to the new array
+}
+
+template <typename T> 
+CustomStack<T> &CustomStack<T>::operator=(const CustomStack<T> &right)
+{
+    if (this == &right) 
+        return *this;
+    data = right.data;
+    return *this;
+}
+
+template <typename T> 
+void CustomStack<T>::pop()
+{
+    if (isEmpty()) {
+        throw underflow_error("Stack Underflow! Cannot pop.");
+    }
+    data.pop_back();
+}
+
+template <typename T> 
+T CustomStack<T>::peek() const
+{
+    if (isEmpty()) {
+        throw underflow_error("Stack is empty! Cannot peek.");
+    }
+    return data[data.size() - 1];
+}
+
+template <typename T> 
+void CustomQueue<T>::dequeue()
+{
+    if (isEmpty()) {
+        throw underflow_error("Queue is empty!");
+    }
+    data.erase(0);
+}
+
+template <typename T> 
+T CustomQueue<T>::front() const
+{
+    if (isEmpty()) {
+        throw underflow_error("Queue is empty!");
+    }
+    // directly see the front
+    return data[0];
+}
+
+template <typename T> 
+CustomQueue<T> &CustomQueue<T>::operator=(const CustomQueue<T> &right)
+{
+    if (this == &right) 
+        return *this;
+    data = right.data;
+    return *this;
+}
+
 Memory::Memory() // Default constructor
 {
     for (int i = 0; i < 64; ++i) {
