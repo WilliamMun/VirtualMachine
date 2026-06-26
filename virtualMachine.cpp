@@ -728,8 +728,8 @@ private:
 
         // stack command
         if (first == "PUSH" || first == "POP"){
-            cout << "Warning" << first << "not implemented yet";
-            return nullptr;
+            rest >> a;
+            return new StackInstruction(first, numberReg(a), virtualMachine.getSystemStack());
         }
 
         // loading from memory into a register
@@ -737,13 +737,15 @@ private:
             rest >> a >> b;
             if (a.back() == ',') {a.pop_back();} // clean comma
 
-            if (b.front() == '[') {b = b.substr(1, b.length() -2);} // clean bracket
+            if (b.front() == '[') {
+            b = b.substr(1, b.length() -2); // clean bracket
 
             // if loading from an address stored inside a register, eg. Load R1, [R2]
-            if (b[0] == 'R' || b[0] == 'r') return new MoveInstruction(3, numberReg(a), numberReg(b));
+            if (b[0] == 'R' || b[0] == 'r') {
+                return new MoveInstruction(3, numberReg(a), numberReg(b)); }
 
             // loading direct from a direct memory number, (eg. load R1, 20)
-            return new MoveInstruction(4, numberReg(a), stoi(b));
+            return new LoadStoreInstruction(1, numberReg(a), stoi(b));
         }
 
         // storing from a register into a memory
