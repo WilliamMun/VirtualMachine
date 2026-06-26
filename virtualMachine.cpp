@@ -178,11 +178,8 @@ public:
     }
 
     void push(T element) {
-        if (isFull()) {
-            throw overflow_error("Stack Overflow! Cannot push.");
-        }
-        topIndex++;
-        arr[topIndex] = element;
+        
+        data.push_back(element);
     }
 
     // FIXME: pop() don't need parameter, removes the top element first
@@ -195,11 +192,11 @@ public:
     }
 
     bool isEmpty() const {
-        return topIndex == -1;
+        return data.size() == 0;
     }
     
     bool isFull() const {
-        return topIndex == maxCapacity - 1;
+        return false;
     }
 
     // TODO: Add a function peek() to return the top element of the stack 
@@ -234,25 +231,21 @@ public:
     ~CustomQueue() {}
 
     void enqueue(T element) {
-        if (current_size == maxCapacity) {
-            throw overflow_error("Queue is full!");
-        }
-        rearIndex = (rearIndex + 1) % maxCapacity; 
-        arr[rearIndex] = element;
-        current_size++;
+        
+        data.push_back(element);
     }
 
     void dequeue(T &element) {
         if (isEmpty()) {
             throw underflow_error("Queue is empty!");
         }
-        element = arr[frontIndex];
-        frontIndex = (frontIndex + 1) % maxCapacity;
-        current_size--;
+        element = data[0];
+
+        data.erase(0);
     }
 
     bool isEmpty() const {
-        return current_size == 0;
+        return data.size() == 0;
     }
 
     // TODO: Add a front() function, to display the front element in the queue
@@ -260,7 +253,7 @@ public:
     // T front() const;
     T front() const {
         if (isEmpty()) {
-            throw std::underflow_error("Queue is empty!");
+            throw underflow_error("Queue is empty!");
         }
         // directly see the front 
         return data[0];
