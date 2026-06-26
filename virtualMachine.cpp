@@ -5,13 +5,7 @@
 #include <sstream>
 #include <fstream>
 using namespace std;
-// ==========================================
-// Class Header
-// ==========================================
 
-// ==========================================
-// EXCEPTION HANDLING
-// ==========================================
 class VMException {
     private:
         const char* errorMessage;
@@ -20,255 +14,148 @@ class VMException {
         const char* getErrorMessage() const { return errorMessage; }
 };
 
-// ==========================================
-// 1. DATA STRUCTURES
-// ==========================================
-// ==========================================
-// A. CUSTOM VECTOR (Dynamic Array)
-// ==========================================
 template <typename T>
 class CustomVector {
-private:
-    T* arr;
-    int capacity;
-    int current_size;
-
-    // Helper function to resize the array when it gets full
-    void resize() {
-        capacity *= 2; // Double the capacity
-        T* temp = new T[capacity]; // Create a new, bigger array
-
-        // Copy old elements to the new array
-        for (int i = 0; i < current_size; i++) {
-            temp[i] = arr[i];
-        }
-
-        delete[] arr; // Delete the old, small array
-        arr = temp;   // Point to the new array
-    }
-
-public:
-    CustomVector() {
-        capacity = 2; // Start with a small capacity
-        current_size = 0;
-        arr = new T[capacity];
-    }
-
-    //destructor
-    ~CustomVector() {
-        delete[] arr; // Prevent memory leaks
-    }
-
-    void push_back(T element) {
-        // If the array is full, resize it first
-        if (current_size == capacity) {
-            resize();
-        }
-        arr[current_size] = element;
-        current_size++;
-    }
-
-    void pop_back() {
-        if (current_size == 0) {
-            throw underflow_error("Vector is empty!");
-        }
-        arr[current_size - 1].~T();
-        // Logically remove it by shrinking the size
-        current_size--;
-    }
-
-    T at(int index) const {
-        if (index < 0 || index >= current_size) {
-            throw out_of_range("Index out of bounds!");
-        }
-        return arr[index];
-    }
-
-    T &operator[](int index) {
-        if (index < 0 || index >= current_size) {
-            throw out_of_range("Index out of bounds!");
-        }
-        return arr[index];
-    }
-
-    const T &operator[](int index) const {
-        if (index < 0 || index >= current_size) {
-            throw out_of_range("Index out of bounds!");
-        }
-        return arr[index];
-    }
-
-    int size() const {
-        return current_size;
-    }
-
-    void erase(int index) { // FIXME: Change template data type T to int since index is always an integer.
-        if (index < 0 || index >= current_size) {
-            throw out_of_range("Error: Index out of bounds!");
-        }
-
-        arr[index].~T();
-
-        for (int i = index; i < current_size - 1; i++) {
-            arr[i] = arr[i + 1];
-        }
-        current_size--;
-    }
-
-    CustomVector(const CustomVector<T> & right) {
-        capacity = right.capacity;
-        current_size = right.current_size;
-        arr = new T[capacity];
-        for (int i = 0; i < current_size; i++) {
-            arr[i] = right.arr[i];
-        }
-    }
-
-    CustomVector& operator=(const CustomVector <T> &right) {
-        if (this == &right) return *this;
-
-        delete[] arr;
-
-        capacity = right.capacity;
-        current_size = right.current_size;
-        arr = new T[capacity];
-
-        for (int i = 0; i < current_size; i++) {
-            arr[i] = right.arr[i];
-        }
-        return *this;
-    }
-};
-
-// ==========================================
-// B. CUSTOM STACK (Last-In, First-Out)
-// ==========================================
-template <typename T>
-class CustomStack {
-private:
-   CustomVector<T> data;
-
-public:
-    //contructor
-    CustomStack() {}
-
-    //destructor
-    ~CustomStack() {}
-
-    //copy contructor
-    CustomStack(const CustomStack<T>& right) : data(right.data) {}
-
-    //copy assignment operator
-    CustomStack& operator=(const CustomStack<T>& right) {
-        if (this == &right) return *this;
-        data = right.data;
-        return *this;
-    }
-
-    void push(T element) {
-        data.push_back(element);
-    }
-
-    void pop() {
-        if (isEmpty()) {
-            throw underflow_error("Stack Underflow! Cannot pop.");
-        }
-        data.pop_back();
-    }
-
-    bool isEmpty() const {
-        return data.size() == 0;
-    }
-
-    bool isFull() const {
-        return true; // FIXME: Change to true. By default this expression (stack.isFull()) will means is the stack is full?
-                      // Then you should return true if the stack is full; false is the stack is not full.
-    }
-
-    T peek() const {
-        if (isEmpty()) {
-            throw underflow_error("Stack is empty! Cannot peek.");
-        }
-        return data[data.size() - 1];
-    }
-
-
-};
-
-// ==========================================
-// C. CUSTOM QUEUE (First-In, First-Out)
-// ==========================================
-template <typename T>
-class CustomQueue {
-private:
-    CustomVector<T> data;
-
-public:
-
-    //defualt contructor
-    CustomQueue() {}
-
-    //destructor
-    ~CustomQueue() {}
-
-    void enqueue(T element) {
-        data.push_back(element);
-    }
-
-    // FIXME: dequeue() don't need parameter, same as pop(), since by default dequeue removes the front element in the queue.
-    void dequeue() {
-        if (isEmpty()) {
-            throw underflow_error("Queue is empty!");
-        }
-        element = data[0];
-        data.erase(0);
-    }
-
-    bool isEmpty() const {
-        return data.size() == 0;
-    }
-
-    T front() const {
-        if (isEmpty()) {
-            throw underflow_error("Queue is empty!");
-        }
-        // directly see the front
-        return data[0];
-    }
-
-    CustomQueue(const CustomQueue<T>& right) : data(right.data) {}
-
-    CustomQueue& operator=(const CustomQueue<T>& right) {
-        if (this == &right) return *this;
-        data = right.data;
-        return *this;
-    }
-};
-
-// ==========================================
-// 2. REGISTER HIERARCHY
-// ==========================================
-
-// Base class encapsulating an 8-bit signed value
-class Register {
     private:
-        signed char value; // 1 byte (signed char, -128 to 127)
+        T* arr;
+        int capacity;
+        int current_size;
+
+        // Helper function to resize the array when it gets full
+        void resize();
 
     public:
+
+        CustomVector(); 
+
+        ~CustomVector() { delete[] arr; } // Prevent memory leaks
+
+        CustomVector(const CustomVector<T>& right);
+
+        void push_back(T element);
+
+        void pop_back();
+
+        T at(int index) const;
+
+        T &operator[](int index);
+
+        int size() const { return current_size; }
+
+        void erase(int index);
+
+        const T &operator[](int index) const;
+
+        CustomVector& operator=(const CustomVector<T> &right);
+};
+
+template <typename T>
+class CustomStack {
+    private:
+        CustomVector<T> data;
+
+    public:
+    
+        CustomStack() {}
+
+        ~CustomStack() {}
+
+        CustomStack(const CustomStack<T>& right) : data(right.data) {}
+
+        CustomStack& operator=(const CustomStack<T>& right); 
+
+        void push(T element) { data.push_back(element); }
+
+        void pop();
+
+        bool isEmpty() const { return data.size() == 0;}
+
+        bool isFull() const { return true; }
+
+        T peek() const; 
+};
+
+template <typename T>
+class CustomQueue {
+    private:
+        CustomVector<T> data;
+
+    public:
+
+        CustomQueue() {}
+
+        ~CustomQueue() {}
+
+        CustomQueue(const CustomQueue<T>& right) : data(right.data) {}
+
+        void enqueue(T element) { data.push_back(element); }
+
+        void dequeue(); 
+
+        bool isEmpty() const { return data.size() == 0; }
+
+        T front() const;
+
+        CustomQueue& operator=(const CustomQueue<T>& right);
+};
+
+/**
+ * @brief    A base class representing a general-purpose register
+ * @details  Register class allows operation such as retrieving data from the register and updating the data in register.
+ * @author   Mun William
+ */
+class Register {
+    private:
+        // Holds 8 bits data loaded into register.
+        // 'signed char' restrict the data stores in exactly 1 byte, which is the data will only ranged from -128 to 127.
+        signed char value;
+
+    public:
+        /**
+         * @brief  Default constructor. Constructs a Register object with default value stored in it.
+         * @post   The value in register is initialized with value 0.
+         * @author Mun William
+         */
         Register() : value(0) {}
+
+        /**
+         * @brief  Destructor. Destroys the Register object and frees allocated memory.
+         * @note   Virtual base destructor ensures derived class destroyed safely when derived class is destroyed via a base pointer, preventing memory leaks.
+         * @author Mun William
+         */
         virtual ~Register() {}
 
+        /**
+         * @brief  Getter function. Returns value stored in Register object.
+         * @return The internal value as a signed character.
+         * @author Mun William
+         */
         signed char getValue() const { return value; }
+
+        /**
+         * @brief   Setter function. Update value in Register object.
+         * @param v The new signed character to be stored.
+         * @author  Mun William
+         */
         void setValue(signed char v) { value = v; }
 };
 
-// Represents R0-R7 registers
+/**
+ * @brief   A derived class from Register representing data register which use to store data.
+ * @details Inherited from Register class. Has public access for public member function in Register class.
+ * @author  Mun William
+ */
 class DataRegister : public Register {
     public:
+        /**
+         * @brief  Default constructor. Constructs DataRegister object by calling Register class default constructor
+         * @post   The data register will be initialized with value 0.
+         * @author Mun William
+         */
         DataRegister() : Register() {}
 };
 
-// Manages individual flag bits (CF, OF, UF, ZF)
+
 class FlagRegister {
     private:
         bool CF, OF, UF, ZF;
@@ -886,6 +773,176 @@ public:
 // ==========================================
 // Class Implementation
 // ==========================================
+template <typename T>
+CustomVector<T>::CustomVector()
+{
+    capacity = 2; // Start with a small capacity
+    current_size = 0;
+    arr = new T[capacity];
+}
+
+template <typename T>
+CustomVector<T>::CustomVector(const CustomVector<T>& right)
+{
+    capacity = right.capacity;
+    current_size = right.current_size;
+    arr = new T[capacity];
+    for (int i = 0; i < current_size; i++) {
+        arr[i] = right.arr[i];
+    }
+}
+
+template <typename T>
+void CustomVector<T>::push_back(T element)
+{
+    // If the array is full, resize it first
+    if (current_size == capacity) {
+        resize();
+    }
+    arr[current_size] = element;
+    current_size++;
+}
+
+template <typename T>
+void CustomVector<T>::pop_back()
+{
+    if (current_size == 0) {
+        throw underflow_error("Vector is empty!");
+    }
+    arr[current_size - 1].~T();
+    // Logically remove it by shrinking the size
+    current_size--;
+}
+
+template <typename T>
+T CustomVector<T>::at(int index) const
+{
+    if (index < 0 || index >= current_size) {
+        throw out_of_range("Index out of bounds!");
+    }
+    return arr[index];
+}
+
+template <typename T>
+const T& CustomVector<T>::operator[](int index) const
+{
+    if (index < 0 || index >= current_size) {
+        throw out_of_range("Index out of bounds!");
+    }
+    return arr[index];
+}
+
+template <typename T>
+void CustomVector<T>::erase(int index)
+{
+    if (index < 0 || index >= current_size) {
+        throw out_of_range("Error: Index out of bounds!");
+    }
+
+    arr[index].~T();
+
+    for (int i = index; i < current_size - 1; i++) {
+        arr[i] = arr[i + 1];
+    }
+    current_size--;
+}
+
+template <typename T>
+T& CustomVector<T>::operator[](int index)
+{
+    if (index < 0 || index >= current_size) {
+        throw out_of_range("Index out of bounds!");
+    }
+    return arr[index];
+}
+
+template<typename T> 
+CustomVector<T> &CustomVector<T>::operator=(const CustomVector<T> &right)
+{
+    if (this == &right) return *this;
+
+    delete[] arr;
+
+    capacity = right.capacity;
+    current_size = right.current_size;
+    arr = new T[capacity];
+
+    for (int i = 0; i < current_size; i++) {
+        arr[i] = right.arr[i];
+    }
+    return *this;
+}
+
+template <typename T>
+void CustomVector<T>::resize()
+{
+    capacity *= 2; // Double the capacity
+    T* temp = new T[capacity]; // Create a new, bigger array
+
+    // Copy old elements to the new array
+    for (int i = 0; i < current_size; i++) {
+        temp[i] = arr[i];
+    }
+
+    delete[] arr; // Delete the old, small array
+    arr = temp;   // Point to the new array
+}
+
+template <typename T> 
+CustomStack<T> &CustomStack<T>::operator=(const CustomStack<T> &right)
+{
+    if (this == &right) 
+        return *this;
+    data = right.data;
+    return *this;
+}
+
+template <typename T> 
+void CustomStack<T>::pop()
+{
+    if (isEmpty()) {
+        throw underflow_error("Stack Underflow! Cannot pop.");
+    }
+    data.pop_back();
+}
+
+template <typename T> 
+T CustomStack<T>::peek() const
+{
+    if (isEmpty()) {
+        throw underflow_error("Stack is empty! Cannot peek.");
+    }
+    return data[data.size() - 1];
+}
+
+template <typename T> 
+void CustomQueue<T>::dequeue()
+{
+    if (isEmpty()) {
+        throw underflow_error("Queue is empty!");
+    }
+    data.erase(0);
+}
+
+template <typename T> 
+T CustomQueue<T>::front() const
+{
+    if (isEmpty()) {
+        throw underflow_error("Queue is empty!");
+    }
+    // directly see the front
+    return data[0];
+}
+
+template <typename T> 
+CustomQueue<T> &CustomQueue<T>::operator=(const CustomQueue<T> &right)
+{
+    if (this == &right) 
+        return *this;
+    data = right.data;
+    return *this;
+}
+
 Memory::Memory() // Default constructor
 {
     for (int i = 0; i < 64; ++i) {
