@@ -59,15 +59,6 @@ public:
         delete[] arr; // Prevent memory leaks
     }
 
-    CustomVector(const CustomVector& other) {
-        capacity = other.capacity;
-        current_size = other.current_size;
-        arr = new T[capacity]; 
-        for (int i = 0; i < current_size; i++) {
-            arr[i] = other.arr[i];
-        }
-    }
-
     void push_back(T element) {
         // If the array is full, resize it first
         if (current_size == capacity) {
@@ -84,20 +75,6 @@ public:
         arr[current_size - 1].~T(); 
         // Logically remove it by shrinking the size
         current_size--; 
-    }
-
-    CustomVector& operator=(const CustomVector& other) {
-        if (this == &other) return *this; 
-
-        delete[] arr; 
-        capacity = other.capacity;
-        current_size = other.current_size;
-        arr = new T[capacity]; 
-        
-        for (int i = 0; i < current_size; i++) {
-            arr[i] = other.arr[i];
-        }
-        return *this;
     }
 
     T at(int index) const {
@@ -128,14 +105,48 @@ public:
     // TODO: Add a function call erase(). void erase(T index) is to remove element at a specific index. Note that to remove element using object type destructor also.
     // Function Header:
     // void erase(T index);
+    void erase(T index) {
+        if (index < 0 || index >= current_size) {
+            throw out_of_range("Error: Index out of bounds!");
+        }
+        
+        arr[index].~T(); 
+
+        for (int i = index; i < current_size - 1; i++) {
+            arr[i] = arr[i + 1]; 
+        }
+        current_size--;
+    }
 
     // TODO: Add a copy constructor   
     // Function Header: 
     // CustomVector(const CustomVector<T>& right);
+    CustomVector(const CustomVector<T> & right) {
+        capacity = right.capacity;
+        current_size = right.current_size;
+        arr = new T[capacity]; 
+        for (int i = 0; i < current_size; i++) {
+            arr[i] = right.arr[i];
+        }
+    }
 
     // TODO: Add a copy assignment operator 
     // Function Header:
     // CustomVector& operator=(const CustomVector<T>& right);
+    CustomVector& operator=(const CustomVector <T> &right) {
+        if (this == &right) return *this; 
+
+        delete[] arr; 
+
+        capacity = right.capacity;
+        current_size = right.current_size;
+        arr = new T[capacity]; 
+        
+        for (int i = 0; i < current_size; i++) {
+            arr[i] = right.arr[i];
+        }
+        return *this;
+    }
 };
 
 // ==========================================
@@ -145,19 +156,25 @@ public:
 template <typename T>
 class CustomStack {
 private:
-    T* arr;
-    int topIndex;
-    int maxCapacity;
+   CustomVector<T> data;
 
 public:
-    CustomStack(int size = 8) {
-        maxCapacity = size;
-        topIndex = -1; 
-        arr = new T[maxCapacity];
-    }
+    //contructor
+    CustomStack() {}
     
-    ~CustomStack() {
-        delete[] arr;
+    //destructor
+    ~CustomStack() {}
+
+    //copy contructor
+    CustomStack(const CustomStack<T>& right) : data(right.data) {}
+
+    //copy assignment operator
+    CustomStack& operator=(const CustomStack<T>& right) {
+        if (this == &right) return *this; 
+
+        data = right.data; 
+        
+        return *this;
     }
 
     void push(T element) {
@@ -169,12 +186,12 @@ public:
     }
 
     // FIXME: pop() don't need parameter, removes the top element first
-    void pop(T& element) {
+    void pop() {
         if (isEmpty()) {
             throw underflow_error("Stack Underflow! Cannot pop.");
         }
-        element = arr[topIndex];
-        topIndex--;
+        
+        data.pop_back();
     }
 
     bool isEmpty() const {
@@ -188,14 +205,15 @@ public:
     // TODO: Add a function peek() to return the top element of the stack 
     // Function header:
     // T peek() const;
+    T peek() const {
+        if (isEmpty()) {
+            throw underflow_error("Stack is empty! Cannot peek.");
+        }
+        
+        return data[data.size() - 1]; 
+    }
 
-    // TODO: Add a copy constructor   
-    // Function Header: 
-    // CustomStack(const CustomStack<T>& right);
-
-    // TODO: Add a copy assignment operator 
-    // Function Header:
-    // CustomStack& operator=(const CustomStack<T>& right);
+   
 };
 
 // ==========================================
@@ -205,24 +223,15 @@ public:
 template <typename T>
 class CustomQueue {
 private:
-    T* arr;
-    int frontIndex;
-    int rearIndex;
-    int current_size;
-    int maxCapacity;
+    CustomVector<T> data;
 
 public:
-    CustomQueue(int size = 100) {
-        maxCapacity = size;
-        arr = new T[maxCapacity];
-        frontIndex = 0;
-        rearIndex = -1;
-        current_size = 0;
-    }
+
+    //defualt contructor
+    CustomQueue() {}
     
-    ~CustomQueue() {
-        delete[] arr;
-    }
+    //destructor
+    ~CustomQueue() {}
 
     void enqueue(T element) {
         if (current_size == maxCapacity) {
@@ -245,30 +254,31 @@ public:
     bool isEmpty() const {
         return current_size == 0;
     }
-    
-    // FIXME: Remove clear() function, memory handling part done by CustomVector
-    int size() const {
-        return current_size;
-    }
-
-    // FIXME: Remove clear() function, memory handling part done by CustomVector
-    void clear() {
-        frontIndex = 0;
-        rearIndex = -1;
-        current_size = 0;
-    } 
 
     // TODO: Add a front() function, to display the front element in the queue
     // Function Header:
     // T front() const;
+    T front() const {
+        if (isEmpty()) {
+            throw std::underflow_error("Queue is empty!");
+        }
+        // directly see the front 
+        return data[0];
+    }
 
     // TODO: Add a copy constructor   
     // Function Header: 
     // CustomQueue(const CustomQueue<T>& right);
+    CustomQueue(const CustomQueue<T>& right) : data(right.data) {}
 
     // TODO: Add a copy assignment operator 
     // Function Header:
     // CustomQueue& operator=(const CustomQueue<T>& right);
+    CustomQueue& operator=(const CustomQueue<T>& right) {
+        if (this == &right) return *this; 
+        data = right.data; 
+        return *this;
+    }
 };
 
 // ==========================================
