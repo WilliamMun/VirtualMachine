@@ -756,10 +756,14 @@ private:
             // if storing into an address pointed to by a register, eg. store R1, [R2]
             if (b.front() == '['){
                 b = b.substr(1, b.length() - 2); // clean brackets
-                return new MoveInstruction(6, numberReg(b), numberReg(a));
+                return new LoadStoreInstruction(3, numberReg(b), numberReg(a));
             }
+            else if (a[0] == 'R' || a[0 == 'r']) {
             // storing directly into a specific memory slot (eg. store R3, 20), 20 is the memory address R3 is the register that holds the value to be stored
-            return new MoveInstruction(5, stoi(b), numberReg(a));
+            return new LoadStoreInstruction(2, numberReg(a), stoi(b));}
+            // stores into memory slot (eg. store 20, R3), this also stores the value in register 3 to memory 20
+            else  {
+                return new LoadStoreInstruction(2, numberReg(b), stoi(a)); }
         }
         return nullptr; // return nothing if nothing matches this category
     }
