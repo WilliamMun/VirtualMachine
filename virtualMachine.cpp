@@ -245,20 +245,34 @@ public:
     }
 };
 
-// ==========================================
-// 2. REGISTER HIERARCHY
-// ==========================================
-
-// Base class encapsulating an 8-bit signed value
 class Register {
     private:
-        signed char value; // 1 byte (signed char, -128 to 127)
+        signed char value; 
 
     public:
+
+        /** 
+         * @brief Constructs a Register object with default value stored in it.
+         * @post The value in register is initialized with value 0.
+         */
         Register() : value(0) {}
+
+        /**
+         * @brief Destroys the Register object and frees allocated memory.
+         * * @note Virtual base destructor ensures derived class destroyed safely when derived class is destroyed via a base pointer, preventing memory leaks.
+         */
         virtual ~Register() {}
 
+        /**
+         * @brief Returns value stored in Register object.
+         * @return The internal value as a signed character.
+         */
         signed char getValue() const { return value; }
+
+        /**
+         * @brief Update value in Register object.
+         * @param v The new signed character to be stored.
+         */
         void setValue(signed char v) { value = v; }
 };
 
