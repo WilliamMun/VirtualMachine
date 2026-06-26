@@ -4,7 +4,7 @@
 #include <iomanip>
 #include <sstream>
 #include <fstream>
-using namespace std; 
+using namespace std;
 // ==========================================
 // Class Header
 // ==========================================
@@ -37,12 +37,12 @@ private:
     void resize() {
         capacity *= 2; // Double the capacity
         T* temp = new T[capacity]; // Create a new, bigger array
-        
+
         // Copy old elements to the new array
         for (int i = 0; i < current_size; i++) {
             temp[i] = arr[i];
         }
-        
+
         delete[] arr; // Delete the old, small array
         arr = temp;   // Point to the new array
     }
@@ -53,7 +53,8 @@ public:
         current_size = 0;
         arr = new T[capacity];
     }
-    
+
+    //destructor
     ~CustomVector() {
         delete[] arr; // Prevent memory leaks
     }
@@ -66,14 +67,14 @@ public:
         arr[current_size] = element;
         current_size++;
     }
-    
-    // NOTE: Changed to T& (pass by reference) so the popped value is actually returned to the caller
-    void pop_back(T& element) {
+
+    void pop_back() {
         if (current_size == 0) {
             throw underflow_error("Vector is empty!");
         }
-        element = arr[current_size - 1]; // Grab the last element
-        current_size--; // Logically remove it by shrinking the size
+        arr[current_size - 1].~T();
+        // Logically remove it by shrinking the size
+        current_size--;
     }
 
     T at(int index) const {
@@ -83,22 +84,59 @@ public:
         return arr[index];
     }
 
-    T &operator[](int index) { 
+    T &operator[](int index) {
         if (index < 0 || index >= current_size) {
             throw out_of_range("Index out of bounds!");
         }
         return arr[index];
     }
-    
-    const T &operator[](int index) const { 
+
+    const T &operator[](int index) const {
         if (index < 0 || index >= current_size) {
             throw out_of_range("Index out of bounds!");
         }
         return arr[index];
     }
-    
+
     int size() const {
         return current_size;
+    }
+
+    void erase(T index) { // FIXME: Change template data type T to int since index is always an integer.
+        if (index < 0 || index >= current_size) {
+            throw out_of_range("Error: Index out of bounds!");
+        }
+
+        arr[index].~T();
+
+        for (int i = index; i < current_size - 1; i++) {
+            arr[i] = arr[i + 1];
+        }
+        current_size--;
+    }
+
+    CustomVector(const CustomVector<T> & right) {
+        capacity = right.capacity;
+        current_size = right.current_size;
+        arr = new T[capacity];
+        for (int i = 0; i < current_size; i++) {
+            arr[i] = right.arr[i];
+        }
+    }
+
+    CustomVector& operator=(const CustomVector <T> &right) {
+        if (this == &right) return *this;
+
+        delete[] arr;
+
+        capacity = right.capacity;
+        current_size = right.current_size;
+        arr = new T[capacity];
+
+        for (int i = 0; i < current_size; i++) {
+            arr[i] = right.arr[i];
+        }
+        return *this;
     }
 };
 
@@ -108,44 +146,53 @@ public:
 template <typename T>
 class CustomStack {
 private:
-    T* arr;
-    int topIndex;
-    int maxCapacity;
+   CustomVector<T> data;
 
 public:
-    CustomStack(int size = 8) {
-        maxCapacity = size;
-        topIndex = -1; 
-        arr = new T[maxCapacity];
-    }
-    
-    ~CustomStack() {
-        delete[] arr;
+    //contructor
+    CustomStack() {}
+
+    //destructor
+    ~CustomStack() {}
+
+    //copy contructor
+    CustomStack(const CustomStack<T>& right) : data(right.data) {}
+
+    //copy assignment operator
+    CustomStack& operator=(const CustomStack<T>& right) {
+        if (this == &right) return *this;
+        data = right.data;
+        return *this;
     }
 
     void push(T element) {
-        if (isFull()) {
-            throw overflow_error("Stack Overflow! Cannot push.");
-        }
-        topIndex++;
-        arr[topIndex] = element;
+        data.push_back(element);
     }
 
-    void pop(T& element) {
+    void pop() {
         if (isEmpty()) {
             throw underflow_error("Stack Underflow! Cannot pop.");
         }
-        element = arr[topIndex];
-        topIndex--;
+        data.pop_back();
     }
 
     bool isEmpty() const {
-        return topIndex == -1;
+        return data.size() == 0;
     }
-    
+
     bool isFull() const {
-        return topIndex == maxCapacity - 1;
+        return false; // FIXME: Change to true. By default this expression (stack.isFull()) will means is the stack is full?
+                      // Then you should return true if the stack is full; false is the stack is not full.
     }
+
+    T peek() const {
+        if (isEmpty()) {
+            throw underflow_error("Stack is empty! Cannot peek.");
+        }
+        return data[data.size() - 1];
+    }
+
+
 };
 
 // ==========================================
@@ -154,66 +201,58 @@ public:
 template <typename T>
 class CustomQueue {
 private:
-    T* arr;
-    int frontIndex;
-    int rearIndex;
-    int current_size;
-    int maxCapacity;
+    CustomVector<T> data;
 
 public:
-    CustomQueue(int size = 100) {
-        maxCapacity = size;
-        arr = new T[maxCapacity];
-        frontIndex = 0;
-        rearIndex = -1;
-        current_size = 0;
-    }
-    
-    ~CustomQueue() {
-        delete[] arr;
-    }
+
+    //defualt contructor
+    CustomQueue() {}
+
+    //destructor
+    ~CustomQueue() {}
 
     void enqueue(T element) {
-        if (current_size == maxCapacity) {
-            throw overflow_error("Queue is full!");
-        }
-        rearIndex = (rearIndex + 1) % maxCapacity; 
-        arr[rearIndex] = element;
-        current_size++;
+        data.push_back(element);
     }
 
+    // FIXME: dequeue() don't need parameter, same as pop(), since by default dequeue removes the front element in the queue.
     void dequeue(T &element) {
         if (isEmpty()) {
             throw underflow_error("Queue is empty!");
         }
-        element = arr[frontIndex];
-        frontIndex = (frontIndex + 1) % maxCapacity;
-        current_size--;
+        element = data[0];
+        data.erase(0);
     }
 
     bool isEmpty() const {
-        return current_size == 0;
-    }
-    
-    int size() const {
-        return current_size;
+        return data.size() == 0;
     }
 
-    void clear() {
-        frontIndex = 0;
-        rearIndex = -1;
-        current_size = 0;
-    } 
+    T front() const {
+        if (isEmpty()) {
+            throw underflow_error("Queue is empty!");
+        }
+        // directly see the front
+        return data[0];
+    }
+
+    CustomQueue(const CustomQueue<T>& right) : data(right.data) {}
+
+    CustomQueue& operator=(const CustomQueue<T>& right) {
+        if (this == &right) return *this;
+        data = right.data;
+        return *this;
+    }
 };
 
 // ==========================================
 // 2. REGISTER HIERARCHY
 // ==========================================
 
-// Base class encapsulating an 8-bit signed value 
+// Base class encapsulating an 8-bit signed value
 class Register {
     private:
-        signed char value; // 1 byte (signed char, -128 to 127) 
+        signed char value; // 1 byte (signed char, -128 to 127)
 
     public:
         Register() : value(0) {}
@@ -223,13 +262,13 @@ class Register {
         void setValue(signed char v) { value = v; }
 };
 
-// Represents R0-R7 registers 
+// Represents R0-R7 registers
 class DataRegister : public Register {
     public:
         DataRegister() : Register() {}
 };
 
-// Manages individual flag bits (CF, OF, UF, ZF) 
+// Manages individual flag bits (CF, OF, UF, ZF)
 class FlagRegister {
     private:
         bool CF, OF, UF, ZF;
@@ -242,19 +281,19 @@ class FlagRegister {
     public:
         FlagRegister() : CF(false), OF(false), UF(false), ZF(false) {}
 
-        // Getters and setters for flags 
+        // Getters and setters for flags
         bool getCF() const { return CF; }
         void setCF(bool value) { CF = value; }
-    
+
         bool getOF() const { return OF; }
         void setOF(bool value) { OF = value; }
 
         bool getUF() const { return UF; }
-        void setUF(bool value) { UF = value; } 
+        void setUF(bool value) { UF = value; }
 
         bool getZF() const { return ZF; }
         void setZF(bool value) { ZF = value; }
-    
+
         void resetAll() { CF = OF = UF = ZF = false; }
         void flagArithmeticSetter(unsigned char oper1, unsigned char oper2, int result);
         void flagIOSetter(int input);
@@ -265,16 +304,16 @@ class FlagRegister {
 // 3. MEMORY
 // ==========================================
 
-// Handles storage and addressing logic over a vector of bytes 
+// Handles storage and addressing logic over a vector of bytes
 class Memory {
     private:
         signed char data[64]; // 1-dimensional array of 64 signed bytes
 
-    public: 
+    public:
         Memory(); // Default constructor
         Memory(const Memory &mem); // Copy constructor
         Memory& operator=(const Memory& other); // Copy assignment operator
-        signed char read(int address) const; // 
+        signed char read(int address) const; //
         void write(int address, signed char value);
         void displayMemory();
 };
@@ -287,13 +326,13 @@ class Memory {
 // holds data, keep track where the program is, manages temporary storage
 class CPU {
 private:
-    DataRegister R[8];     // R0 to R7 
+    DataRegister R[8];     // R0 to R7
     FlagRegister flags;       // Aggregated flags (0 or 1 signals)
     Memory memory;            // Composed memory
- 
+
     unsigned char PC;         // Program Counter, remembers which line of the assembly program is reading (1 byte, starts at 0)
     unsigned char SI;         // Stack Index, count of how many things piled up (1 byte, starts at 0)
- 
+
     CustomStack<signed char> systemStack; // Temporary store number
 
 public:
@@ -303,10 +342,12 @@ public:
     DataRegister* getRegister(int index) { return &R[index]; } // returns pointer to a specific data register, pointer gives the runner the memory address of the pointer
     FlagRegister* getFlags() { return &flags; } // returns pointer to flag registers so the runner can check or update them
     Memory* getMemory() { return &memory; } // returns a pointer to the main memory so the runner can load or store data
- 
+
+    CustomStack<signed char>& getSystemStack() {return systemStack};
+
     unsigned char getPC() const { return PC; } // return the current line the Program Counter is on, const prevent changes on PC value
     void incrementPC() { PC++; } // runner calls this after finishing an instruction, move program counter forward by 1, cpu knows to move to next line
- 
+
     unsigned char getSI() const { return SI; } //return the current number of items piled in the stack
     void incrementSI() { SI++; } // increases stack index by 1 when a new item is added to stack
     void decrementSI() { SI--; } // decreases stack index by 1 when a new item is removed from stack
@@ -318,30 +359,23 @@ public:
 
     // removes the top value from stack and gives it back to caller, & modifies the variable that runner passed into function directly
     void popFromStack(signed char& value) {
-        systemStack.pop(value); // takes the data off the top of customstack, will crash/throw an error if empty
-        decrementSI(); //update counter so cpu knows stack is smaller
+        value = systemStack.peek();
+        systemStack.pop();
+        incrementSI();
     }
-
-    // void updateMathFlags(int result)
-    // {
-    //     flags.resetAll();
-    //     if (result == 0) {flags.setZF(true);}
-    //     if (result > 127) {flags.setOF(true); flags.setCF(true);}
-    //     if (result < -128) {flags.setUF(true); flags.setCF(true);}
-    // }
 };
 
 // ==========================================
 // 5. INSTRUCTION HIERARCHY
 // ==========================================
 
-// Abstract base class for all assembly commands 
+// Abstract base class for all assembly commands
 class Instruction {
 public:
     Instruction() = default;
-    virtual ~Instruction() {} 
-    // Virtual polymorphism 
-    virtual void execute(CPU& cpu) = 0; 
+    virtual ~Instruction() {}
+    // Virtual polymorphism
+    virtual void execute(CPU& cpu) = 0;
 };
 
 // arithmethic instruction derived class
@@ -364,8 +398,8 @@ private:
 public:
     ArithmeticInstruction(string operation, int dest, int source):ar(operation), destRI(dest), sourceRI(source){}; // creating an instruction, example: ADD,R1,R2
     virtual ~ArithmeticInstruction() override = default;
-    void execute(CPU& cpu) override { 
-        
+    void execute(CPU& cpu) override {
+
         DataRegister* destReg = cpu.getRegister(destRI); //fetch the pointer to destination register
         FlagRegister* flags = cpu.getFlags();  // fetch the pointer to cpu flag register
         flags->resetAll(); //clear all cpu flags
@@ -397,7 +431,7 @@ private:
         } else if (op == "DEC"){
             return (v1 - 1); // if operation = decrement, result - 1
         } else {
-            throw VMException("Error: Invalid operation."); // if not inc or dec, throw exception 
+            throw VMException("Error: Invalid operation."); // if not inc or dec, throw exception
             return 0;
         }
     }
@@ -429,14 +463,14 @@ private:
     int mode; // 1: Immediate, 2: Register-Register, 3: Register-Indirect, 4: Load, 5: Store Address-Register 6:[R?]-R?
     int destI; //destination index
     int sourceI; //source index
-    void executeStore(CPU& cpu, Memory* memory){
-        if (mode == 5){ //store addres, register
-            memory->write(destI, cpu.getRegister(sourceI)->getValue());
-        } else if (mode == 6){ //store [register], register
-            int address = cpu.getRegister(destI)->getValue();
-            memory->write(address, cpu.getRegister(sourceI)->getValue());
-        }
-    }
+    // void executeStore(CPU& cpu, Memory* memory){
+    //     if (mode == 5){ //store addres, register
+    //         memory->write(destI, cpu.getRegister(sourceI)->getValue());
+    //     } else if (mode == 6){ //store [register], register
+    //         int address = cpu.getRegister(destI)->getValue();
+    //         memory->write(address, cpu.getRegister(sourceI)->getValue());
+    //     }
+    // }
 public:
     MoveInstruction(int moveMode, int dest, int source): mode(moveMode), destI(dest), sourceI(source){} //move instruction constructor, example: 1, R1, R2
     void execute(CPU& cpu) override{
@@ -447,15 +481,15 @@ public:
             cpu.getRegister(destI)->setValue(cpu.getRegister(sourceI)->getValue());
         } else if (mode == 3 || mode == 4){ // MOV register, [register] or LOAD register, [address]
             int address;
-            if (mode == 3){ 
+            if (mode == 3){
                 address = cpu.getRegister(sourceI)->getValue(); //get address stored inside the register
-            } else {
-                address = sourceI; //sourceI is the literal address
+            // } else {
+            //     address = sourceI; //sourceI is the literal address
             }
             int dataFromMemory = memory->read(address); //fetch data from that memory address
             cpu.getRegister(destI)->setValue(dataFromMemory); // store it in destination register
-        } else {
-            executeStore(cpu, memory);
+        // } else {
+        //     executeStore(cpu, memory);
         }
     }
 };
@@ -468,17 +502,17 @@ private:
 public:
     IOInstruction(string operation, int idx) : op(operation), regI(idx) {} // ioi instruction constructor
     void execute(CPU& cpu) override {
-        
+
         DataRegister* reg = cpu.getRegister(regI); //fetch the pointer to register
         FlagRegister* flags = cpu.getFlags(); // fetch the pointer to cpu flag register
-        
+
         if (op == "INPUT"){ //check instruction is input command
             flags->resetAll(); //clear all cpu flags
-            
+
             cout << "?" << endl;
             int rawInput; // to store user value
             cin >> rawInput; //read user value
-            
+
             reg->setValue(static_cast<signed char>(rawInput)); //convert 32-bit integer to 8-bit signed byte
             flags->flagIOSetter(rawInput);
 
@@ -515,12 +549,12 @@ public:
             }else if (op == "SHR"){ //shift right
                 val = val >> dCount; //push bit to the right
             }else if (op == "ROL") { //rotate left
-                val = (val << dCount) | (val >> (8 - dCount));      
+                val = (val << dCount) | (val >> (8 - dCount));
             }else if (op == "ROR"){ //rotate right
                 val = (val >> dCount) | (val << (8 - dCount));
             }
         }
-        // signed char fResult = static_cast<signed char>(val); // convert the unsigned byte container back to a signed char format 
+        // signed char fResult = static_cast<signed char>(val); // convert the unsigned byte container back to a signed char format
         reg->setValue(static_cast<signed char>(val));
         // if (fResult == 0) flags->setZF(true); //set zf to true if the final register value = zero
         flags->flagLogicalSetter(static_cast<unsigned char>(val));
@@ -541,11 +575,68 @@ public:
     }
 };
 
+// William
+class LoadStoreInstruction : public Instruction {
+    private:
+        int mode;
+        int dataRegisterIndex;
+        int addressRegisterIndex;
+        int memoryAddress;
+
+        /**
+         * mode 1: LOAD <Register>, [<Address>] Example: LOAD R1, [20]
+         * mode 2: STORE <Register>, <Address> Note that arrangement of operand is NOT IMPORTANT. Example: STORE R1, 43 or STORE 43, R1
+         * mode 3: STORE <Register>, [<Register>] Example: STORE R1, [R2]
+         */
+
+    public:
+        LoadStoreInstruction(int m, int dRI, int memAdd): mode(m), dataRegisterIndex(dRI), addressRegisterIndex(-1), memoryAddress(memAdd) {} // Parameterized constructor: Use when handling instruction with mode 1: LOAD <Register>, [<Address>] and mode 2: STORE <Register>, <Address>
+        LoadStoreInstruction(int m, int dRI, int aRI): mode(m), dataRegisterIndex(dRI), addressRegisterIndex(aRI), memoryAddress(-1) {} // Parameterized constructor: Use when handling instruction with mode 3: STORE <Register>, [<Register>]
+        void execute(CPU& cpu) override {
+            DataRegister* datReg = cpu.getRegister(dataRegisterIndex);
+            DataRegister* addReg = cpu.getRegister(addressRegisterIndex);
+            Memory* mem = cpu.getMemory();
+
+            if(mode == 1){ // LOAD <Register>, [<Address>]
+                datReg->setValue(mem->read(memoryAddress));
+            } else if (mode == 2){ // STORE <Register>, <Address>
+                mem->write(memoryAddress, datReg->getValue());
+            } else if (mode == 3){ // STORE <Register>, [<Register>]
+                mem->write(static_cast<int>(addReg->getValue()), datReg->getValue());
+            } else {
+                throw VMException("Invalid LOAD or STORE operation."); // Prevent unexpected value passing into mode
+            }
+        }
+
+};
+
+// William
+class StackInstruction : public Instruction {
+    private:
+        string operation;
+        int dataRegisterIndex;
+        CustomStack<signed char>& systemStack; // @todo: confirm data type used by stack
+
+    public:
+        StackInstruction(string op, int dRI, CustomStack<signed char>& sysSk): operation(op), dataRegisterIndex(dRI), systemStack(sysSk) {}
+        void execute(CPU& cpu) override {
+            DataRegister* datReg = cpu.getRegister(dataRegisterIndex);
+
+            if(operation == "PUSH"){
+                systemStack.push(datReg->getValue());
+            } else if (operation == "POP") {
+                systemStack.pop();
+            } else {
+                throw VMException("Invalid PUSH or POP operation."); // Prevent unexpected value passing into operation
+            }
+        }
+};
+
 // ==========================================
 // 6. RUNNER (INTERPRETER)
 // ==========================================
 
-// Loads programs, decodes instructions, delegates execution to CPU 
+// Loads programs, decodes instructions, delegates execution to CPU
 class Runner {
 private:
     CPU virtualMachine; // Composition, actual virtual machine that will do math and store data
@@ -553,7 +644,7 @@ private:
     // uses polymorphism, holds generic instruction pointers, but they will point to specific types
 
     // helper function, checks if a line is empty or just spaces
-    bool isBlankLine(string dummy) 
+    bool isBlankLine(string dummy)
     {
         if (dummy.empty()) return true; // if there is zero character, return blank
         for(int i=0; i < dummy.length(); i++) // look at every character in the string
@@ -567,7 +658,7 @@ private:
     // Helper function to pad numbers with leading zeroes (eg. 5 into 0005)
     string format4(int num) {
         stringstream belt;
-        // setfill('0') tells it to use zeroes. 
+        // setfill('0') tells it to use zeroes.
         // setw(4) tells it to make sure the string is exactly 4 characters wide.
         belt << setfill('0') << setw(4) << num;
         return belt.str(); //  convert the stream back into a normal string
@@ -595,20 +686,20 @@ private:
             rest >> dest; // read the next word (eg. R1)
             return new IncDecInstruction(first, numberReg(dest));
         }
-        
+
         // if its not INC, DEC, ADD, SUB, MUL, DIV, or MOV, this function cant handle it
         if (first != "ADD" && first != "SUB" && first != "MUL" && first != "DIV" && first != "MOV") return nullptr;
-        
+
         // for math and mov, read the next two words (destination and value)
         rest >> dest >> value;
-        
+
         // clean variable 'dest' (remove the trailing comma)
         if (dest.back() == ',') {
-            dest.pop_back(); 
+            dest.pop_back();
         }
-        
+
         int reg = numberReg(dest); // convert R1 to 1
-        
+
         // handle move instructions which have diff modes
         if (first == "MOV") {
             if (value.front() == '[') {
@@ -703,7 +794,10 @@ public:
 
     // loads asm file, read it, translate into instructions
     void loadProgram(const string& filename) {
-        ifstream file(filename); // open the text file for reading
+        // Read .asm file line by line
+        // Decode strings into Instruction objects
+        // Store in CustomVector
+        ifstream file(filename);
         if(!file.is_open()){
             cout << "Error: Could not open file" << filename << "\n";
             exit(1); // crash if the file does not exist
@@ -765,7 +859,7 @@ public:
     // prints the exact current status of the CPU and Memory to the screen
     void dumpState() {
         cout << "#Begin#\n";
-        
+
         cout << "#Registers#";
         for (int i = 0; i < 8; i++) {
             // getRegister returns a pointer, use ->
@@ -793,7 +887,7 @@ public:
             }
             cout << "\n"; // new line at the end of each row
         }
-        
+
         cout << "#End#\n";
         }
     };
@@ -829,15 +923,15 @@ Memory& Memory::operator=(const Memory& other)
 
 signed char Memory::read(int address) const
 {
-    if (address >= 0 && address < 64) 
+    if (address >= 0 && address < 64)
         return data[address];
-    else 
+    else
         throw VMException("Data cannot be displayed due to address out of bound.");
 }
 
 void Memory::write(int address, signed char value)
 {
-    if (address >= 0 && address < 64) 
+    if (address >= 0 && address < 64)
         this->data[address] = value;
     else
         throw VMException("Data cannot be written due to address out of bound.");
@@ -884,7 +978,7 @@ void FlagRegister::flagLogicalSetter(unsigned char result)
 int main() {
     Runner interpreter;
     // Load the program from file / Ask user to enter file name to be compiled
-    // Get file and compile the assembly code 
+    // Get file and compile the assembly code
     // Print the VM's state after executed each line of assembly code
     return 0;
 }
