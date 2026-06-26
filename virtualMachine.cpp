@@ -102,7 +102,7 @@ public:
         return current_size;
     }
 
-    void erase(T index) { // FIXME: Change template data type T to int since index is always an integer.
+    void erase(int index) { // FIXME: Change template data type T to int since index is always an integer.
         if (index < 0 || index >= current_size) {
             throw out_of_range("Error: Index out of bounds!");
         }
@@ -181,7 +181,7 @@ public:
     }
 
     bool isFull() const {
-        return false; // FIXME: Change to true. By default this expression (stack.isFull()) will means is the stack is full?
+        return true; // FIXME: Change to true. By default this expression (stack.isFull()) will means is the stack is full?
                       // Then you should return true if the stack is full; false is the stack is not full.
     }
 
@@ -216,7 +216,7 @@ public:
     }
 
     // FIXME: dequeue() don't need parameter, same as pop(), since by default dequeue removes the front element in the queue.
-    void dequeue(T &element) {
+    void dequeue() {
         if (isEmpty()) {
             throw underflow_error("Queue is empty!");
         }
