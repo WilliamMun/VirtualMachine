@@ -440,7 +440,8 @@ class ArithmeticInstruction : public Instruction {
 private:
     string ar; //"ADD", "SUB", "MUL", "DIV"
     int destRI; //destination register index
-    int sourceRI; //source register index
+    int sourceVal; //source register index or immediate
+    bool isImmediate; //true if sourceVal is immediate value, otherwise false
     int compute(int v1, int v2){ // compute the operation and return the value
         if (ar == "ADD") return v1 + v2;
         if (ar == "SUB") return v1 - v2;
@@ -453,8 +454,21 @@ private:
         return 0;
     }
 public:
-    ArithmeticInstruction(string operation, int dest, int source):ar(operation), destRI(dest), sourceRI(source){}; // creating an instruction, example: ADD,R1,R2
-    virtual ~ArithmeticInstruction() override = default;
+    ArithmeticInstruction(string operation, int dest, int source, bool immediate):ar(operation), destRI(dest), sourceVal(source), isImmediate(immediate){}; // creating an instruction, example: ADD,R1,R2
+    ArithmeticInstruction(string operation, int dest) : destRI(dest){
+        if (operation == "INC"){
+            ar = "ADD";
+            sourceVal = 1;
+            isImmediate = true;
+        } else if (operation == "DEC"){
+            ar = "SUB";
+            sourceVal = 1;
+            isImmediate = true;
+        } else {
+            throw VMException("Error: Invalid operation syntax");
+        }
+    }
+    virtual ~ArithmeticInstruction() override;
     void execute(CPU& cpu) override {
 
         DataRegister* destReg = cpu.getRegister(destRI); //fetch the pointer to destination register
@@ -462,7 +476,15 @@ public:
         flags->resetAll(); //clear all cpu flags
 
         int val1 = destReg->getValue(); // read the current int value from destination
-        int val2 = cpu.getRegister(sourceRI)->getValue(); //read current int value from source register
+        int val2 = 0; 
+
+        //route the operand lookup based on the flag type
+        if (isImmediate){
+            val2 = sourceVal; //use the raw int directly
+        } else {
+            val2 = cpu.getRegister(sourceVal)->getValue(); //fetch from register index
+        }
+
         int result = compute(val1, val2); // perform math operation
 
         flags->flagArithmeticSetter(static_cast<unsigned char>(val1), static_cast<unsigned char>(val2), result);
@@ -477,47 +499,10 @@ public:
     }
 };
 
-// increment and decrement instruction derived class
-class IncDecInstruction : public Instruction{
-private:
-    string op; // "INC", "DEC"
-    int registerIdx; // variable register index
-    int compute(int v1){
-        if (op == "INC") {
-            return (v1 + 1); // if operation = increment, result + 1
-        } else if (op == "DEC"){
-            return (v1 - 1); // if operation = decrement, result - 1
-        } else {
-            throw VMException("Error: Invalid operation."); // if not inc or dec, throw exception
-            return 0;
-        }
-    }
-
-public:
-    IncDecInstruction(string operation, int idx) : op(operation), registerIdx(idx) {} //inc dec constructor, example: INC,R[2]
-    void execute(CPU& cpu) override{
-
-        DataRegister* reg = cpu.getRegister(registerIdx); //fetch the pointer to register
-        FlagRegister* flags = cpu.getFlags(); // fetch the pointer to cpu flag register
-        int operand= reg->getValue(); // read the current int value from register
-        flags->resetAll(); //clear all cpu flags
-        int result = compute(operand); //perform inc/dec instruction
-
-        flags->flagArithmeticSetter(static_cast<unsigned char>(operand), static_cast<unsigned char>(1), result);
-        reg->setValue(static_cast<signed char>(result)); // write final result to destination register
-
-        // if (result > 255 || result < -256) flags->setCF(true); //set cf if result out of 9 bit signed boundaries
-        // if (result > 127) flags->setOF(true); //set of if result exceed 8 bit
-        // if (result < -128) flags->setUF(true);//set uf if result below 8 bit
-        // signed char fResult = static_cast<signed char>(result); // force 32 bit result into 8 bit
-        // if (fResult == 0) flags->setZF(true); // set zf if final value = 0
-    }
-};
-
 // move instruction derived class
 class MoveInstruction : public Instruction{
 private:
-    int mode; // 1: Immediate, 2: Register-Register, 3: Register-Indirect, 4: Load, 5: Store Address-Register 6:[R?]-R?
+    int mode; // 1: Immediate, 2: Register-Register, 3: Register-Indirect
     int destI; //destination index
     int sourceI; //source index
     // void executeStore(CPU& cpu, Memory* memory){
