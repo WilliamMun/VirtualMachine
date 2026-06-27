@@ -419,10 +419,11 @@ public:
     }
 
     // removes the top value from stack and gives it back to caller, & modifies the variable that runner passed into function directly
-    void popFromStack(signed char& value) {
-        value = systemStack.peek();
+    signed char popFromStack() {
+        signed char peek = systemStack.peek();
         systemStack.pop();
         decrementSI();
+        return peek;
     }
 };
 
@@ -1327,10 +1328,9 @@ void StackInstruction::execute(CPU& cpu)
     DataRegister* datReg = cpu.getRegister(dataRegisterIndex);
 
     if(operation == "PUSH"){
-        systemStack.push(datReg->getValue());
+        cpu.pushToStack(datReg->getValue());
     } else if (operation == "POP") {
-        datReg->setValue(systemStack.peek());
-        systemStack.pop();
+        datReg->setValue(cpu.popFromStack());
     } else {
         throw VMException("Invalid PUSH or POP operation."); // Prevent unexpected value passing into operation
     }
