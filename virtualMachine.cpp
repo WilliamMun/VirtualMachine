@@ -1203,9 +1203,9 @@ void Memory::displayMemory()
     for(int i = 0; i < 64; i++){
         if(i == 8 || i == 16 || i == 24 || i == 32 || i == 40 || i == 48 || i == 56){
             cout << endl;
-            cout << "#" << data[i] << "#";
+            cout << "#" << static_cast<int>(data[i]) << "#";
         } else {
-            cout << data[i] << "#";
+            cout << static_cast<int>(data[i]) << "#";
         }
     }
     cout << endl;
