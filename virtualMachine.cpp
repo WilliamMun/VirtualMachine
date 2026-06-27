@@ -26,7 +26,7 @@ class CustomVector {
 
     public:
 
-        CustomVector(); 
+        CustomVector();
 
         ~CustomVector() { delete[] arr; } // Prevent memory leaks
 
@@ -55,14 +55,14 @@ class CustomStack {
         CustomVector<T> data;
 
     public:
-    
+
         CustomStack() {}
 
         ~CustomStack() {}
 
         CustomStack(const CustomStack<T>& right) : data(right.data) {}
 
-        CustomStack& operator=(const CustomStack<T>& right); 
+        CustomStack& operator=(const CustomStack<T>& right);
 
         void push(T element) { data.push_back(element); }
 
@@ -72,7 +72,7 @@ class CustomStack {
 
         bool isFull() const { return true; }
 
-        T peek() const; 
+        T peek() const;
 };
 
 template <typename T>
@@ -90,7 +90,7 @@ class CustomQueue {
 
         void enqueue(T element) { data.push_back(element); }
 
-        void dequeue(); 
+        void dequeue();
 
         bool isEmpty() const { return data.size() == 0; }
 
@@ -128,6 +128,7 @@ class Register {
         /**
          * @brief  Getter function. Returns value stored in Register object.
          * @return The internal value as a signed character.
+         * @note   'const' keyword prevents modification of value variable.
          * @author Mun William
          */
         signed char getValue() const { return value; }
@@ -135,6 +136,7 @@ class Register {
         /**
          * @brief   Setter function. Update value in Register object.
          * @param v The new signed character to be stored.
+         * @post    Value in register is stored with the new value, v.
          * @author  Mun William
          */
         void setValue(signed char v) { value = v; }
@@ -148,66 +150,238 @@ class Register {
 class DataRegister : public Register {
     public:
         /**
-         * @brief  Default constructor. Constructs DataRegister object by calling Register class default constructor
+         * @brief  Default constructor. Constructs DataRegister object by calling Register class default constructor.
          * @post   The data register will be initialized with value 0.
          * @author Mun William
          */
         DataRegister() : Register() {}
 };
 
-
+/**
+ * @brief   A register class that storing status of each flag.
+ * @details FlagRegister will only stores 2 values, which are 1 indicates set and 0 indicates reset. The flag register here contains Carry Flag(CF), Underflow Flag(UF), Overflow Flag(OF), Zero Flag(ZF)
+ * @author  Mun William
+ */
 class FlagRegister {
     private:
+        // Holds 1 bit data loaded into flag register
+        // bool is used since bool only stores 1 bit data, which is true(1) and false(0).
         bool CF, OF, UF, ZF;
 
+        /**
+         * @brief       Check whether the result of an arithmetic operation contains carry.
+         * @param value The result of the arithmetic operation
+         * @note        'int' is used so that the 9th bit which represent the carry bit can be detected.
+         * @return      Boolean value which represent whether the result contains carry.
+         * @author      Mun William
+         */
         bool checkCF(int value) { return ((value & 0x100) != 0); }
+
+        /**
+         * @brief        Check whether the result of an arithmetic operation is overflow.
+         * @param oper1  Leftside operand of an arithmetic operation
+         * @param oper2  Rightside operand of an arithmetic operation
+         * @param result Result of the arithmetic operation
+         * @note         'unsigned char' guarantee bitwise AND operation works correctly on the raw bits of the 2's complement value.
+         * @return       Boolean value which represent whether the result is overflow.
+         * @author       Mun William
+         */
         bool checkOF(unsigned char oper1, unsigned char oper2, unsigned char result) { return (((~oper1 & ~oper2 & result) & 0x80) != 0); }
+
+        /**
+         * @brief        Check whether the result of an arithmetic operation is underflow.
+         * @param oper1  Leftside operand of an arithmetic operation
+         * @param oper2  Rightside operand of an arithmetic operation
+         * @param result Result of the arithmetic operation
+         * @note         'unsigned char' guarantee bitwise AND operation works correctly on the raw bits of the 2's complement value.
+         * @return       Boolean value which represent whether the result is underflow.
+         * @author       Mun William
+         */
         bool checkUF(unsigned char oper1, unsigned char oper2, unsigned char result) { return (((oper1 & oper2 & ~result) & 0x80) != 0); }
+
+        /**
+         * @brief     Check whether the result of an operation is zero
+         * @param val Result of the operation
+         * @return    Boolean value which represent whether the result is zero
+         * @author    Mun William
+         */
         bool checkZF(signed char val) { return (val == 0); }
 
     public:
+        /**
+         * @brief  Default constructor. Constructs a flag register object which contains all status flag (carry, underflow, overflow, zero) with default value.
+         * @post   Carry flag, overflow flag, underflow flag and zero flag is initialized with 0 (reset).
+         * @author Mun William
+         */
         FlagRegister() : CF(false), OF(false), UF(false), ZF(false) {}
 
-        // Getters and setters for flags
+        /**
+         * @brief  Getter function. Return status of carry flag.
+         * @return Boolean value which represents whether the result of an arithmetic operation has carry.
+         * @note   'const' keyword prevents modification of CF variable.
+         * @author Mun William
+         */
         bool getCF() const { return CF; }
+
+        /**
+         * @brief       Setter function. Update status of carry flag.
+         * @param value New boolean value represent new status of carry flag.
+         * @post        Carry flag is updated with new value.
+         * @author      Mun William
+         */
         void setCF(bool value) { CF = value; }
 
+        /**
+         * @brief  Getter function. Return status of overflow flag.
+         * @return Boolean value which represents whether the result of an arithmetic operation is overflow.
+         * @note   'const' keyword prevents modification of OF variable.
+         * @author Mun William
+         */
         bool getOF() const { return OF; }
+
+        /**
+         * @brief       Setter function. Update status of overflow flag.
+         * @param value New boolean value represent new status of overflow flag.
+         * @post        Overflow flag is updated with new value.
+         * @author      Mun William
+         */
         void setOF(bool value) { OF = value; }
 
+        /**
+         * @brief  Getter function. Return status of underflow flag.
+         * @return Boolean value which represents whether the result of an arithmetic operation is underflow.
+         * @note   'const' keyword prevents modification of UF variable.
+         * @author Mun William
+         */
         bool getUF() const { return UF; }
+
+        /**
+         * @brief       Setter function. Update status of underflow flag.
+         * @param value New boolean value represent new status of underflow flag.
+         * @post        Underflow flag is updated with new value.
+         * @author      Mun William
+         */
         void setUF(bool value) { UF = value; }
 
+        /**
+         * @brief  Getter function. Return status of zero flag.
+         * @return Boolean value which represents whether the result of an operation is zero.
+         * @note   'const' keyword prevents modification of ZF variable.
+         * @author Mun William
+         */
         bool getZF() const { return ZF; }
+
+        /**
+         * @brief       Setter function. Update status of zero flag.
+         * @param value New boolean value represent new status of zero flag.
+         * @post        Zero flag is updated with new value.
+         * @author      Mun William
+         */
         void setZF(bool value) { ZF = value; }
 
+        /**
+         * @brief  Reset all flag status to 0 (reset status).
+         * @post   Carry, overflow, underflow and zero flag is reset.
+         * @author Mun William
+         */
         void resetAll() { CF = OF = UF = ZF = false; }
+
+        /**
+         * @brief        Function that sets carry, underflow, overflow and zero flag after an arithmetic operation.
+         * @param oper1  Leftside operand of an arithmetic operation.
+         * @param oper2  Rightside operand of an arithmetic operation
+         * @param result Result of the arithmetic operation
+         * @note         'unsigned char' guarantee bitwise AND operation works correctly on the raw bits of the 2's complement value.
+         * @note         'int' is used so that the 9th bit which represent the carry bit can be detected.
+         * @post         Carry, underflow, overflow, zero flag sets to its respective status.
+         * @author       Mun William
+         */
         void flagArithmeticSetter(unsigned char oper1, unsigned char oper2, int result);
+
+        /**
+         * @brief       Function that sets carry, underflow, overflow and zero flag after an input operation.
+         * @param input Input value by user.
+         * @note        'int' is used to preserve the overflow value (value larger than 127) and underflow value (value smaller than -128) input by user.
+         * @post        Underflow, overflow and zero flag sets to its respective status.
+         * @author      Mun William
+         */
         void flagIOSetter(int input);
+
+        /**
+         * @brief        Function that sets zero flag after a logical operation (shift, rotate).
+         * @param result Result of a logical operation.
+         * @note         'unsigned char' guarantee bitwise AND operation works correctly on the raw bits of the 2's complement value.
+         * @post         Zero flag sets to its respective status.
+         * @author       Mun William
+         */
         void flagLogicalSetter(unsigned char result);
 };
 
-// ==========================================
-// 3. MEMORY
-// ==========================================
-
-// Handles storage and addressing logic over a vector of bytes
+/**
+ * @brief   A memory object that handles storage and addressing logic over an array of bytes.
+ * @details Creates a 64-bytes array that act as the memory space in virtual machine.
+ * @author  Mun William
+ */
 class Memory {
     private:
-        signed char data[64]; // 1-dimensional array of 64 signed bytes
+        // 1-dimensional array of 64 signed bytes
+        signed char data[64];
 
     public:
-        Memory(); // Default constructor
-        Memory(const Memory &mem); // Copy constructor
-        Memory& operator=(const Memory& other); // Copy assignment operator
-        signed char read(int address) const; //
+        /**
+         * @brief  Default constructor. Construct a new memory object.
+         * @post   A new memory object is initialized, with 0 stored inside the 1-dimensional array. (Refer to function implementation)
+         * @author Mun William
+         */
+        Memory();
+
+        /**
+         * @brief     Copy constructor. Deep copy the current memory object to a new memory object.
+         * @param mem The object to be copied.
+         * @note      'const' before parameter mem ensures the parameter will not be modified.
+         * @post      A new identical memory object will be created.
+         * @author    Mun William
+         */
+        Memory(const Memory &mem);
+
+        /**
+         * @brief       Copy assignment operator. Deep copy the current memory object to a new memory object.
+         * @param other The object to be copied.
+         * @note        'const' before parameter other ensures the parameter will not be modified.
+         * @return      A reference of memory object which is identical to the parameter.
+         * @author      Mun William
+         */
+        Memory& operator=(const Memory& other);
+
+        /**
+         * @brief         Retrives value in the specific address (index of array)
+         * @param address Index of the 1-dimensional array
+         * @pre           address value should between 0 and 64
+         * @throws        VMException if address value smaller than 0 or larger than 64.
+         * @return        Signed character stored inside the specific address (index)
+         * @note          'const' keyword at the end prevents modification of value stored in the address.
+         * @author        Mun William
+         */
+        signed char read(int address) const;
+
+        /**
+         * @brief         Update value in the specific address (index of array)
+         * @param address Index of 1-dimensional array
+         * @param value   New value to be stored in the memory address
+         * @pre           address value should beteween 0 and 64
+         * @throws        VMException if address value smaller than 0 or larger than 64.
+         * @post          The specific memory address is updated with the value passed in to the function.
+         * @author        Mun William
+         */
         void write(int address, signed char value);
+
+        /**
+         * @brief  Display the value stored in all memory in a square box with 8x8 dimension.
+         * @post   A square box with 8x8 dimension will display a 1-dimensional array (representing memory) which storing a group of value.
+         * @author Mun William
+         */
         void displayMemory();
 };
-
-// ==========================================
-// 4. CPU (CENTRAL PROCESSING UNIT)
-// ==========================================
 
 // Contains registers, memory, PC, and executes instructions
 // holds data, keep track where the program is, manages temporary storage
@@ -251,10 +425,6 @@ public:
         decrementSI();
     }
 };
-
-// ==========================================
-// 5. INSTRUCTION HIERARCHY
-// ==========================================
 
 // Abstract base class for all assembly commands
 class Instruction {
@@ -462,66 +632,107 @@ public:
     }
 };
 
-// William
+/**
+ * @brief   Derived class from Instruction class that executes load or store instruction.
+ * @details Perform runtime polymorphism. Executes LoadStoreInstruction::execute() when execute is called via base class pointer, but with derived class object.
+ * @author  Mun William
+ */
 class LoadStoreInstruction : public Instruction {
     private:
-        int mode;
-        int dataRegisterIndex;
-        int addressRegisterIndex;
-        int memoryAddress;
-
         /**
+         * Identifies the instruction based on:
          * mode 1: LOAD <Register>, [<Address>] Example: LOAD R1, [20]
          * mode 2: STORE <Register>, <Address> Note that arrangement of operand is NOT IMPORTANT. Example: STORE R1, 43 or STORE 43, R1
          * mode 3: STORE <Register>, [<Register>] Example: STORE R1, [R2]
          */
+        int mode;
+
+        // Stores the data register index (0-7)
+        int dataRegisterIndex;
+
+        // Stores the index for data register which storing address (for mode 3) (0-7)
+        int addressRegisterIndex;
+
+        // Stores the memory address (index of array with 64 element)
+        int memoryAddress;
 
     public:
-        LoadStoreInstruction(int m, int dRI, int memAdd): mode(m), dataRegisterIndex(dRI), addressRegisterIndex(-1), memoryAddress(memAdd) {} // Parameterized constructor: Use when handling instruction with mode 1: LOAD <Register>, [<Address>] and mode 2: STORE <Register>, <Address>
-        LoadStoreInstruction(int m, int dRI, int aRI): mode(m), dataRegisterIndex(dRI), addressRegisterIndex(aRI), memoryAddress(-1) {} // Parameterized constructor: Use when handling instruction with mode 3: STORE <Register>, [<Register>]
-        void execute(CPU& cpu) override {
-            DataRegister* datReg = cpu.getRegister(dataRegisterIndex);
-            DataRegister* addReg = cpu.getRegister(addressRegisterIndex);
-            Memory* mem = cpu.getMemory();
+        /**
+         * @brief        Parameterized constructor. Constructs a new load or store instruction object.
+         * @details      Use when handling instruction with mode 1: LOAD <Register>, [<Address>] and mode 2: STORE <Register>, <Address>
+         * @param m      Integer value represent mode of load or store instruction.
+         * @param dRI    Integer value represent data register index
+         * @param memAdd Integer value represent memory address (index of array with 64 elements)
+         * @pre          m should be in range 1-3, dRI should be in range 0-7, memAdd should be in range 0-63
+         * @throw        VMException if m smaller than 1 or larger than 3, dRI smaller than 0 or larger than 7, memAdd smaller than 0 larger than 63.
+         * @post         Created a new LoadStoreInstruction object.
+         * @author       Mun William
+         */
+        LoadStoreInstruction(int m, int dRI, int memAdd);
 
-            if(mode == 1){ // LOAD <Register>, [<Address>]
-                datReg->setValue(mem->read(memoryAddress));
-            } else if (mode == 2){ // STORE <Register>, <Address>
-                mem->write(memoryAddress, datReg->getValue());
-            } else if (mode == 3){ // STORE <Register>, [<Register>]
-                mem->write(static_cast<int>(addReg->getValue()), datReg->getValue());
-            } else {
-                throw VMException("Invalid LOAD or STORE operation."); // Prevent unexpected value passing into mode
-            }
-        }
+        /**
+         * @brief     Parameterized constructor. Constructs a new load or store instruction object.
+         * @details   Use when handling instruction with mode 3: STORE <Register>, [<Register>]
+         * @param m   Integer value represent mode of load or store instruction.
+         * @param dRI Integer value represent data register index
+         * @param aRI Integer value represent index of data register which storing an address
+         * @pre       m should be in range 1-3, dRI should be in range 0-7, aRI should be in range 0-7
+         * @throw     VMException if m smaller than 1 or larger than 3, dRI smaller than 0 or larger than 7, aRI smaller than 0 or larger than 7.
+         * @post      Created a new LoadStoreInstruction object.
+         * @author    Mun William
+         */
+        LoadStoreInstruction(int m, int dRI, int aRI);
+
+        /**
+         * @brief     Executes the LOAD or STORE instruction based on its mode.
+         * @param cpu Reference to CPU object, that containing the memory, register.
+         * @note      This is a polymorphic function. 'override' means LoadStoreInstruction::execute() function will override pure virtual function, Instruction::execute() in base class.
+         * @throw     VMException if mode is not 1, 2, or 3.
+         * @post      Execute the respective instruction, load value found in specified memory address into specified register, or store value found in specified register into specified memory address.
+         * @author    Mun William
+         */
+        void execute(CPU& cpu) override;
 
 };
 
-// William
+/**
+ * @brief   Derived class from Instruction class that executes stack instruction.
+ * @details Perform runtime polymorphism. Executes StackInstruction::execute() when execute is called via base class pointer, but with derived class object.
+ * @author  Mun William
+ */
 class StackInstruction : public Instruction {
     private:
+        // Stores the type of stack operation, either "PUSH" or "POP"
         string operation;
+
+        // Stores the data register index (0-7)
         int dataRegisterIndex;
-        CustomStack<signed char>& systemStack; // @todo: confirm data type used by stack
+
+        // Stores the reference of stack in the virtual machine
+        CustomStack<signed char>& systemStack;
 
     public:
-        StackInstruction(string op, int dRI, CustomStack<signed char>& sysSk): operation(op), dataRegisterIndex(dRI), systemStack(sysSk) {}
-        void execute(CPU& cpu) override {
-            DataRegister* datReg = cpu.getRegister(dataRegisterIndex);
+        /**
+         * @brief       Parameterized constructor. Constructs a new stack instruction object.
+         * @param op    String that represent the type of stack operation.
+         * @param dRI   Integer value represent data register index
+         * @param sysSk CustomStack reference that point to the stack in CPU.
+         * @throw       VMException if op is not "PUSH" or "POP", dRI smaller than 0 or larger than 7
+         * @post        Created a new StackInstruction object.
+         * @author      Mun William
+         */
+        StackInstruction(string op, int dRI, CustomStack<signed char>& sysSk);
 
-            if(operation == "PUSH"){
-                systemStack.push(datReg->getValue());
-            } else if (operation == "POP") {
-                systemStack.pop();
-            } else {
-                throw VMException("Invalid PUSH or POP operation."); // Prevent unexpected value passing into operation
-            }
-        }
+        /**
+         * @brief     Executes the PUSH or POP instruction.
+         * @param cpu Reference to CPU object, that containing the memory, register.
+         * @note      This is a polymorphic function. 'override' means StackInstruction::execute() function will override pure virtual function, Instruction::execute() in base class.
+         * @throw     VMException if operation is not "PUSH" or "POP".
+         * @post      Execute the PUSH instruction, push value in register into program stack, or POP instruction, pop value in the program stack into the register.
+         * @author    Mun William
+         */
+        void execute(CPU& cpu) override;
 };
-
-// ==========================================
-// 6. RUNNER (INTERPRETER)
-// ==========================================
 
 // Loads programs, decodes instructions, delegates execution to CPU
 class Runner {
@@ -882,7 +1093,7 @@ T& CustomVector<T>::operator[](int index)
     return arr[index];
 }
 
-template<typename T> 
+template<typename T>
 CustomVector<T> &CustomVector<T>::operator=(const CustomVector<T> &right)
 {
     if (this == &right) return *this;
@@ -914,16 +1125,16 @@ void CustomVector<T>::resize()
     arr = temp;   // Point to the new array
 }
 
-template <typename T> 
+template <typename T>
 CustomStack<T> &CustomStack<T>::operator=(const CustomStack<T> &right)
 {
-    if (this == &right) 
+    if (this == &right)
         return *this;
     data = right.data;
     return *this;
 }
 
-template <typename T> 
+template <typename T>
 void CustomStack<T>::pop()
 {
     if (isEmpty()) {
@@ -932,7 +1143,7 @@ void CustomStack<T>::pop()
     data.pop_back();
 }
 
-template <typename T> 
+template <typename T>
 T CustomStack<T>::peek() const
 {
     if (isEmpty()) {
@@ -941,7 +1152,7 @@ T CustomStack<T>::peek() const
     return data[data.size() - 1];
 }
 
-template <typename T> 
+template <typename T>
 void CustomQueue<T>::dequeue()
 {
     if (isEmpty()) {
@@ -950,7 +1161,7 @@ void CustomQueue<T>::dequeue()
     data.erase(0);
 }
 
-template <typename T> 
+template <typename T>
 T CustomQueue<T>::front() const
 {
     if (isEmpty()) {
@@ -960,10 +1171,10 @@ T CustomQueue<T>::front() const
     return data[0];
 }
 
-template <typename T> 
+template <typename T>
 CustomQueue<T> &CustomQueue<T>::operator=(const CustomQueue<T> &right)
 {
-    if (this == &right) 
+    if (this == &right)
         return *this;
     data = right.data;
     return *this;
@@ -1044,6 +1255,100 @@ void FlagRegister::flagIOSetter(int input)
 void FlagRegister::flagLogicalSetter(unsigned char result)
 {
     setZF(checkZF(static_cast<signed char>(result)));
+}
+
+LoadStoreInstruction::LoadStoreInstruction(int m, int dRI, int memAdd)
+{
+    addressRegisterIndex = -1;
+
+    if(m >= 1 && m <= 3){
+        mode = m;
+    } else {
+        throw VMException("Invalid LOAD or STORE instruction format.");
+    }
+
+    if(memAdd >= 0 && memAdd < 64){
+        memoryAddress = memAdd;
+    } else {
+        throw VMException("Memory address out of bound. Memory address only ranged from 0 to 63.");
+    }
+
+    if(dRI >= 0 && dRI < 8){
+        dataRegisterIndex = dRI;
+    } else {
+        throw VMException("Register index out of bound. Data register only ranged from R0 to R7.");
+    }
+}
+
+LoadStoreInstruction::LoadStoreInstruction(int m, int dRI, int aRI)
+{
+    memoryAddress = -1;
+
+    if(m >= 1 && m <= 3){
+        mode = m;
+    } else {
+        throw VMException("Invalid LOAD or STORE instruction format.");
+    }
+
+    if(dRI >= 0 && dRI < 8){
+        dataRegisterIndex = dRI;
+    } else {
+        throw VMException("Register index out of bound. Data register only ranged from R0 to R7.");
+    }
+
+    if(aRI >= 0 && aRI < 8){
+        addressRegisterIndex = dRI;
+    } else {
+        throw VMException("Register index out of bound. Data register only ranged from R0 to R7.");
+    }
+}
+
+void LoadStoreInstruction::execute(CPU &cpu)
+{
+    DataRegister* datReg = cpu.getRegister(dataRegisterIndex);
+    DataRegister* addReg = cpu.getRegister(addressRegisterIndex);
+    Memory* mem = cpu.getMemory();
+
+    if(mode == 1){ // LOAD <Register>, [<Address>]
+        datReg->setValue(mem->read(memoryAddress));
+    } else if (mode == 2){ // STORE <Register>, <Address>
+        mem->write(memoryAddress, datReg->getValue());
+    } else if (mode == 3){ // STORE <Register>, [<Register>]
+        mem->write(static_cast<int>(addReg->getValue()), datReg->getValue());
+    } else {
+        throw VMException("Invalid LOAD or STORE instruction format."); // Prevent unexpected value passing into mode
+    }
+}
+
+StackInstruction::StackInstruction(string op, int dRI, CustomStack<signed char> &sysSk): systemStack(sysSk)
+{
+    systemStack = sysSk;
+
+    if(op == "PUSH" || op == "POP"){
+        operation = op;
+    } else {
+        throw VMException("Invalid stack instruction format.");
+    }
+
+    if(dRI >= 0 && dRI < 8){
+        dataRegisterIndex = dRI;
+    } else {
+        throw VMException("Register index out of bound. Data register only ranged from R0 to R7.");
+    }
+}
+
+void StackInstruction::execute(CPU& cpu)
+{
+    DataRegister* datReg = cpu.getRegister(dataRegisterIndex);
+
+    if(operation == "PUSH"){
+        systemStack.push(datReg->getValue());
+    } else if (operation == "POP") {
+        datReg->setValue(systemStack.peek());
+        systemStack.pop();
+    } else {
+        throw VMException("Invalid PUSH or POP operation."); // Prevent unexpected value passing into operation
+    }
 }
 
 // ==========================================
