@@ -933,8 +933,8 @@ public:
         // take lines out the queue one by one, translate them and put them into a vector
         while(!lineQueue.isEmpty())
         {
-            string currentLine;
-            lineQueue.dequeue(currentLine); //take the line from the front of the queue
+            string currentLine = lineQueue.front();
+            lineQueue.front();
 
             stringstream lineStream(currentLine); // turn the string into a stream to read word by word
             string first;
