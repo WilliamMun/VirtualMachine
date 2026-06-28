@@ -767,7 +767,7 @@ private:
         // if the command is increment or decrement, only uses 1 register
         if (first == "INC" || first == "DEC") {
             rest >> dest; // read the next word (eg. R1)
-            return new IncDecInstruction(first, numberReg(dest));
+            return new ArithmeticInstruction(first, numberReg(dest));
         }
 
         // if its not INC, DEC, ADD, SUB, MUL, DIV, or MOV, this function cant handle it
@@ -848,7 +848,7 @@ private:
             // if storing into an address pointed to by a register, eg. store R1, [R2]
             if (b.front() == '['){
                 b = b.substr(1, b.length() - 2); // clean brackets
-                return new LoadStoreInstruction(3, numberReg(b), numberReg(a));
+                return new LoadStoreInstruction(3, numberReg(a), numberReg(b));
             }
             else if (a[0] == 'R' || a[0]== 'r') {
             // storing directly into a specific memory slot (eg. store R3, 20), 20 is the memory address R3 is the register that holds the value to be stored
@@ -919,7 +919,7 @@ public:
         while(!lineQueue.isEmpty())
         {
             string currentLine = lineQueue.front();
-            lineQueue.front();
+            lineQueue.dequeue();
 
             stringstream lineStream(currentLine); // turn the string into a stream to read word by word
             string first;
