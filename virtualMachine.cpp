@@ -617,7 +617,6 @@ class ArithmeticInstruction : public Instruction {
     public:
         ArithmeticInstruction(string operation, int dest, int source, bool immediate):ar(operation), destRI(dest), sourceVal(source), isImmediate(immediate){}; // creating an instruction, example: ADD,R1,R2
         ArithmeticInstruction(string operation, int dest); 
-        virtual ~ArithmeticInstruction() override; // FIXME: Delete the destructor
         void execute(CPU& cpu) override;
 };
 
@@ -812,7 +811,7 @@ private:
         // if the command is increment or decrement, only uses 1 register
         if (first == "INC" || first == "DEC") {
             rest >> dest; // read the next word (eg. R1)
-            return new IncDecInstruction(first, numberReg(dest));
+            return new ArithmeticInstruction(first, numberReg(dest));
         }
 
         // if its not INC, DEC, ADD, SUB, MUL, DIV, or MOV, this function cant handle it
