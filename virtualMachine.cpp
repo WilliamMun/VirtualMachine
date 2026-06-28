@@ -936,7 +936,7 @@ private:
             // if storing into an address pointed to by a register, eg. store R1, [R2]
             if (b.front() == '['){
                 b = b.substr(1, b.length() - 2); // clean brackets
-                return new LoadStoreInstruction(3, numberReg(b), numberReg(a));
+                return new LoadStoreInstruction(3, numberReg(a), numberReg(b));
             }
             else if (a[0] == 'R' || a[0]== 'r') {
             // storing directly into a specific memory slot (eg. store R3, 20), 20 is the memory address R3 is the register that holds the value to be stored
@@ -968,6 +968,25 @@ private:
         int reg = numberReg(a); //which register to shift
         int count = stoi(b); // how many times to shift it
         return new ShiftInstruction(first, reg, count);
+    }
+
+    // build the shared cpu state to prevent repetition
+    string buildCpuStateString(){
+        stringstream out;
+        out << "#Begin#\n";
+        
+        out << "#Registers#";
+        for (int i = 0; i < 8; i++) {
+            out << format4((int)virtualMachine.getRegister(i)->getValue()) << "#";
+        }
+        out << "\n";
+
+        FlagRegister* f = virtualMachine.getFlags();
+        out << "#Flags#OF#" << f->getOF() << "#UF#" << f->getUF() << "#CF#" << f->getCF() << "#ZF#" << f->getZF() << "#\n";
+
+        out << "#PC#" << format4((int)virtualMachine.getPC()) << "#\n";
+        
+        return out.str();
     }
 
 public:
@@ -1007,7 +1026,7 @@ public:
         while(!lineQueue.isEmpty())
         {
             string currentLine = lineQueue.front();
-            lineQueue.front();
+            lineQueue.dequeue();
 
             stringstream lineStream(currentLine); // turn the string into a stream to read word by word
             string first;
@@ -1025,8 +1044,12 @@ public:
     }
 
     // loops through the saved instructions and tells the CPU to perform them
-    void executeProgram() {
+    void executeProgram(bool saveToFile = false, const string& outputFilename = "output.txt") {
         // try-catch blocks protect the program from crashing
+
+        ofstream outFile;
+        
+        outFile.open(outputFilename);
         try {
             // loop through our vector of instructions from top to bottom
             for (int i = 0; i < program.size(); i++)
@@ -1034,50 +1057,50 @@ public:
                 // tell the specific instruction to execute itself on our virtual machine
                 program.at(i) ->execute(virtualMachine); // move the program counter forward by 1
                 virtualMachine.incrementPC(); // move the program counter forward by 1
-                dumpState(); // print the status of the machine after this step
+
+                // Always display execution on screen
+                dumpStateToScreen();
+
+                dumpStateToFile(outFile);
             }
         }
         // if an error was thrown inside execute(), catch it here and print a safe error message
         catch(const VMException& e)
         {
             cout << "\n Error: " << e.getErrorMessage() << "\n Stopping";
+            outFile << "\n Error: " << e.getErrorMessage() << "\n Stopping\n";
         }
+
+        outFile.close();
     }
 
-    // prints the exact current status of the CPU and Memory to the screen
-    void dumpState() {
-        cout << "#Begin#\n";
+    // screen output 
+    void dumpStateToScreen(){
+        cout << buildCpuStateString();
 
-        cout << "#Registers#";
-        for (int i = 0; i < 8; i++) {
-            // getRegister returns a pointer, use ->
-            cout << format4((int)virtualMachine.getRegister(i)->getValue()) << "#";
-        }
-        cout << "\n";
-
-        // print the status of the warning flags
-        FlagRegister* f = virtualMachine.getFlags();
-        cout << "#Flags#OF#" << f->getOF() << "#UF#" << f->getUF() << "#CF#" << f->getCF() << "#ZF#" << f->getZF() << "#\n";
-
-        // print the current line number the program is on
-        cout << "#PC#" << format4((int)virtualMachine.getPC()) << "#\n";
-
-        cout << "#Memory#\n";
-
-        // print the 64 memory bytes in a nice 8x8 grid
-        Memory* mem = virtualMachine.getMemory();
-        for (int row = 0; row < 8; row++) {
-            cout << "#";
-            for (int col = 0; col < 8; col++) {
-                // calculate the exact 1D index (0 to 63) using 2D row/col coordinates
-                int address = (row * 8) + col;
-                cout << format4((int)mem->read(address)) << "#";
-            }
-            cout << "\n"; // new line at the end of each row
-        }
+        virtualMachine.getMemory()-> displayMemory();
 
         cout << "#End#\n";
+    }
+
+    // file output
+    void dumpStateToFile(ofstream& outFile){
+        outFile << buildCpuStateString();
+
+        outFile << "#Memory#\n";
+        Memory* mem = virtualMachine.getMemory();
+        for (int row = 0; row < 8; row++) {
+            outFile << "#";
+            for (int col = 0; col < 8; col++) {
+                // Integer cast prevents ASCII symbols from ruining the file
+                outFile << format4((int)mem->read((row * 8) + col)) << "#";
+            }
+            outFile << "\n"; 
         }
+
+        outFile << "#End#\n";
+    }
+
     };
 
 // ==========================================
@@ -1553,5 +1576,15 @@ int main() {
     // Load the program from file / Ask user to enter file name to be compiled
     // Get file and compile the assembly code
     // Print the VM's state after executed each line of assembly code
+
+    string filename;
+
+    cout << "Enter the name of the assembly file you want to run (eg., test.asm): ";
+    cin >> filename;
+
+    interpreter.loadProgram(filename);
+    interpreter.executeProgram();
+
+    cout << "\n Program finished! Check output.txt for the full record \n";
     return 0;
 }
