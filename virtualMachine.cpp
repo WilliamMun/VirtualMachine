@@ -14,8 +14,8 @@ class VMException {
 };
 
 /**
- * @brief   [Describe briefly what does this class use for.]
- * @details [Explain briefly why vector need to be created rather than using array. How it fits to other data structures.]
+ * @brief   A generic dynamic array implementation that automatically manages its own memory and capacity.
+ * @details Unlike a standard fixed-size array, this custom vector can dynamically resize itself when full, preventing memory overflow and out-of-bounds errors. It serves as the secure, memory-managed backbone for other higher-level data structures in this project, such as CustomStack and CustomQueue, allowing them to expand infinitely without requiring complex manual memory reallocation or circular indexing logic.
  * @author  Ong Zhong Yik
  */
 template <typename T>
@@ -54,7 +54,7 @@ class CustomVector {
 
         /**
          * @brief       Copy Constructor. Creates a new vector as a deep copy of another vector.
-         * @param right [Explain what is this parameter]
+         * @param right The constant reference to the existing CustomVector object that is being copied.
          * @post        Allocates a completely new independent memory block to avoid double-free errors and shallow copy issues.
          * @author      Ong Zhong Yik
          */
@@ -63,37 +63,37 @@ class CustomVector {
         /**
          * @brief         Adds a new element to the end of the vector.
          * @note          Automatically triggers the resize() function if the current size reaches the maximum capacity.
-         * @param element [Explain what is this parameter]
-         * @post          [What happens after execute this function]
+         * @param element The data value of type T to be added to the vector.
+         * @post          The element is successfully appended to the end of the vector, and current_size is incremented by 1.
          * @author        Ong Zhong Yik
          */
         void push_back(T element);
 
         /**
          * @brief  Removes the last element from the vector.
-         * @pre    [Describe what is condition need to fulfill before this function be called so that it won't trigger throw exception.]
+         * @pre    The vector must not be empty (current_size must be greater than 0).
          * @post   Explicitly calls the destructor of the object being removed (.~T()) to ensure complete memory cleanup, then shrinks the logical size. 
-         * @throw  VMException if [when exception is throw]
+         * @throw  VMException if the vector is already empty (current_size == 0).
          * @author Ong Zhong Yik
          */
         void pop_back();
 
         /**
          * @brief       Accesses the element at the specified index with strict boundary checking.
-         * @note        [Describe about 'const']
-         * @pre         [Describe what is condition need to fulfill before this function be called so that it won't trigger throw exception.]
-         * @param index [Explain what is this parameter]
-         * @throws      VMException if [when exception is throw]
-         * @return      [What is return]
+         * @note        The 'const' keyword guarantees that calling this function will not modify the internal state of the vector.
+         * @pre         The index must be within the valid range of currently stored elements (0 <= index < current_size).
+         * @param index The integer position of the element to retrieve.
+         * @throws      VMException if the index is out of bounds (negative or <= current_size).
+         * @return      The element of type T located at the specified index.
          * @author      Ong Zhong Yik
          */
         T at(int index) const;
 
         /**
          * @brief       Overloaded array subscript operator for accessing and modifying elements.
-         * @pre         [Describe what is condition need to fulfill before this function be called so that it won't trigger throw exception.]
-         * @param index [Explain what is this parameter]
-         * @throws      VMException if [when exception is throw]
+         * @pre         The index must be within the valid range of currently stored elements (0 <= index < current_size).
+         * @param index The integer position of the element to access or modify.
+         * @throws      VMException if the index is out of bounds (negative or <= current_size).
          * @return      Reference to the element. 
          * @author      Ong Zhong Yik
          */
@@ -101,28 +101,28 @@ class CustomVector {
         
         /**
          * @brief       Overloaded array subscript operator for accessing elements (read-only).
-         * @note        Used when the vector is passed as a constant reference. [Describe about 'const']
-         * @pre         [Describe what is condition need to fulfill before this function be called so that it won't trigger throw exception.]
-         * @param index [Explain what is this parameter]
-         * @throws      VMException if [when exception is throw]
-         * @return      [What is return]
+         * @note        Used when the vector is passed as a constant reference. The 'const' keyword guarantees that calling this function will not modify the internal state of the vector.
+         * @pre         The index must be within the valid range of currently stored elements (0 <= index < current_size).
+         * @param index The integer position of the element to access or modify.
+         * @throws      VMException if  the index is out of bounds (negative or <= current_size).
+         * @return      A constant reference to the element of type T at the specified index.
          * @author      Ong Zhong Yik
          */
         const T &operator[](int index) const;
 
         /**
          * @brief  Returns the current number of valid elements inside the vector.
-         * @note   [Describe about 'const']
-         * @return [What is return]
+         * @note   The 'const' keyword guarantees that calling this function will not modify the internal state of the vector.
+         * @return An integer representing the current number of elements logically stored in the vector.
          * @author Ong Zhong Yik
          */
         int size() const { return current_size; }
 
-        /**
+       /**
          * @brief       Removes an element at a specific index.
-         * @pre         [Describe what is condition need to fulfill before this function be called so that it won't trigger throw exception.]
-         * @param index [Explain what is this parameter]
-         * @throws      VMException if [when exception is throw]
+         * @pre         The index must be within the valid boundaries of the vector (0 <= index < current_size).
+         * @param index The integer position of the element to be removed.
+         * @throws      VMException if the index is out of bounds (negative or greater than/equal to current_size).
          * @post        Calls the destructor on the target element and shifts all subsequent elements one step forward to fill the gap. 
          * @author      Ong Zhong Yik
          */
@@ -130,18 +130,18 @@ class CustomVector {
 
         /**
          * @brief       Copy Assignment Operator. Assigns the contents of one vector to another.
-         * @note        [Describe about 'const']
-         * @param right [Explain what is this parameter]
+         * @note        The 'const' keyword in the parameter ensures that the source vector remains completely unmodified during the assignment process.
+         * @param right The constant reference to the source CustomVector object whose data is being copied.
          * @post        Safely handles self-assignment, deletes the old memory block, and performs a deep copy of the new data.
-         * @return      [What is return]
+         * @return      A reference to the newly updated CustomVector object to support chained assignments.
          * @author      Ong Zhong Yik
          */
         CustomVector& operator=(const CustomVector<T> &right);
 };
 
 /**
- * @brief   [Describe briefly what does this class use for.]
- * @details [Explain briefly why stack design to push & pop & peek only, but dont have [] operator and at().]
+ * @brief   A Last-In, First-Out (LIFO) data structure used for temporary storage and retrieval.
+ * @details The stack intentionally restricts access to only the top element (via push, pop, and peek) to enforce strict LIFO behavior, which is essential for operations like expression evaluation or managing CPU state. It does not implement the [] operator or at() function because allowing random access to intermediate elements would violate the foundational principles and security of a stack architecture.
  * @author  Ong Zhong Yik
  */
 template <typename T>
@@ -171,8 +171,8 @@ class CustomStack {
         /**
          * @brief       Copy Constructor. Creates a new stack as a deep copy of an existing stack.
          * @details     Uses an initialization list to directly delegate the deep copy process to CustomVector's copy constructor. 
-         * @note        [Describe about 'const']
-         * @param right [Explain what is this parameter]
+         * @note        The 'const' keyword ensures that the source stack being copied from cannot be altered during initialization.
+         * @param right A constant reference to the source CustomStack object to be duplicated.
          * @post        A new identical copy of CustomStack object is created.
          * @author      Ong Zhong Yik
          */
@@ -181,9 +181,9 @@ class CustomStack {
         /**
          * @brief       Copy Assignment Operator. Assigns the data of one stack to another.
          * @details     Delegates the assignment logic and safe memory handling to CustomVector's assignment operator. 
-         * @note        [Describe about 'const']
-         * @param right [Explain what is this parameter]
-         * @return      [What is return]
+         * @note        The 'const' keyword prevents modification of the source stack during the assignment operation.
+         * @param right A constant reference to the source CustomStack object providing the new data.
+         * @return      A reference to the updated CustomStack object to allow chained assignment.
          * @author      Ong Zhong Yik
          */
         CustomStack& operator=(const CustomStack<T>& right);
@@ -191,8 +191,8 @@ class CustomStack {
         /**
          * @brief         Pushes a new element onto the top of the stack (Last-In).
          * @details       Directly calls CustomVector's push_back() method, allowing for dynamic resizing if needed.
-         * @param element [Explain what is this parameter]
-         * @post          [What happened after this function executed]
+         * @param element The data value of type T to be added to the top of the stack.
+         * @post          The new element is placed at the top of the stack, and the internal logical size increases by 1.
          * @author        Ong Zhong Yik
          */
         void push(T element) { data.push_back(element); }
@@ -202,22 +202,22 @@ class CustomStack {
          * @details Call CustomVector's pop_back() method. 
          * @pre     Stack should not be empty.
          * @throws  VMException if the stack is empty.
-         * @post    [What happened after this function executed]
+         * @post    The element at the top of the stack is destroyed and removed, decreasing the internal logical size by 1.
          * @author  Ong Zhong Yik
          */
         void pop();
 
         /**
          * @brief  Checks whether the stack is currently empty.
-         * @note   [Describe about 'const']
-         * @return Returns true if the underlying CustomVector's size is 0.
+         * @note   The 'const' keyword guarantees that calling this state-check function will not modify any internal data.
+         * @return Returns true if the underlying CustomVector's size is 0, false otherwise.
          * @author Ong Zhong Yik
          */
         bool isEmpty() const { return data.size() == 0; }
 
         /**
          * @brief  Retrieves the top element of the stack without removing it.
-         * @note   [Describe about 'const']
+         * @note   The 'const' keyword ensures that the stack's state and data remain unchanged after peeking.
          * @pre    Stack should not be empty.
          * @throws VMException if the stack is empty.
          * @return Return the last element of the CustomVector. 
@@ -227,8 +227,8 @@ class CustomStack {
 };
 
 /**
- * @brief   [Describe briefly what does this class use for.]
- * @details [Explain briefly why queue design to enqueue & dequeue & front only, but dont have [] operator and at().]
+ * @brief   A First-In, First-Out (FIFO) data structure used for sequential data processing and scheduling.
+ * @details The queue intentionally restricts access to only the front and back elements (via enqueue, dequeue, and front) to enforce strict FIFO behavior. It does not implement the [] operator or at() function because allowing random access to intermediate elements would violate the fundamental sequential nature of a queue, compromising its predictability and data integrity.
  * @author  Ong Zhong Yik
  */
 template <typename T>
@@ -257,8 +257,8 @@ class CustomQueue {
         /**
          * @brief       Copy Constructor. Creates a new queue as a deep copy of an existing queue.
          * @details     Uses an initialization list to directly delegate the deep copy process to CustomVector's highly secure copy constructor.
-         * @note        [Describe about 'const']
-         * @param right [Explain what is this parameter]
+         * @note        The 'const' keyword ensures that the source queue being copied from remains strictly unmodified during the initialization process.
+         * @param right A constant reference to the source CustomQueue object that is to be duplicated.
          * @post        A new identical copy of CustomQueue object is created.
          * @author      Ong Zhong Yik
          */
@@ -267,36 +267,36 @@ class CustomQueue {
         /**
          * @brief         Adds a new element to the back of the queue (First-In).
          * @details       Directly calls CustomVector's push_back() method, allowing the queue to expand dynamically without ever getting "full".
-         * @param element [Explain what is this parameter]
-         * @post          [What happened after this function executed]
+         * @param element The data value of type T to be added to the back of the queue.
+         * @post          The element is successfully appended to the back of the queue, and the internal logical size increases by 1.
          * @author        Ong Zhong Yik
          */
         void enqueue(T element) { data.push_back(element); }
 
         /**
-         * @brief   Removes the front element from the queue (First-Out).
-         * @details Call CustomVector's erase(0) method so all trailing elements automatically shift forward. 
+         * @brief   Removes the front element from the queue.
+         * @details Call CustomVector's erase method so all trailing elements automatically shift forward. 
          * @pre     Queue should not be empty.
-         * @throws  VMExcpetion if the queue is empty.
-         * @post    [What happened after this function executed]
+         * @throws  VMException if the queue is empty.
+         * @post    The element at the front of the queue is destroyed and removed, and all remaining elements are shifted forward, decreasing the size by 1.
          * @author  Ong Zhong Yik
          */
         void dequeue();
 
         /**
          * @brief  Checks whether the queue is currently empty.
-         * @note   [Describe about 'const']
-         * @return Returns true if the underlying CustomVector's size is 0.
+         * @note   The 'const' keyword guarantees that calling this state-check function will not alter any internal data members of the queue.
+         * @return Returns true if the underlying CustomVector's size is 0, false otherwise.
          * @author Ong Zhong Yik
          */
         bool isEmpty() const { return data.size() == 0; }
 
         /**
          * @brief  Retrieves the front element of the queue without removing it.
-         * @note   [Describe about 'const']
+         * @note   The 'const' keyword ensures that peeking at the front element does not modify the queue's state or data.
          * @pre    Queue should not be empty.
          * @throws VMException if the queue is empty.
-         * @return Return the first element (index 0) of the CustomVector. 
+         * @return Return the first element of the CustomVector. 
          * @author Ong Zhong Yik
          */
         T front() const;
@@ -304,9 +304,9 @@ class CustomQueue {
         /**
          * @brief       Copy Assignment Operator. Assigns the data of one queue to another.
          * @details     Safely delegates the assignment logic and deep copy mechanism to CustomVector's assignment operator.
-         * @note        [Describe about 'const']
-         * @param right [Explain what is this parameter]
-         * @return      [What is return]
+         * @note        The 'const' keyword prevents any accidental modification of the source queue during the assignment operation.
+         * @param right A constant reference to the source CustomQueue object providing the new data.
+         * @return      A reference to the updated CustomQueue object to support chained assignments.
          * @author      Ong Zhong Yik
          */
         CustomQueue& operator=(const CustomQueue<T>& right);
