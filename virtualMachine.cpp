@@ -599,45 +599,28 @@ class Memory {
 // Contains registers, memory, PC, and executes instructions
 // holds data, keep track where the program is, manages temporary storage
 class CPU {
-private:
-    DataRegister R[8];     // R0 to R7
-    FlagRegister flags;       // Aggregated flags (0 or 1 signals)
-    Memory memory;            // Composed memory
+    private:
+        DataRegister R[8];     // R0 to R7
+        FlagRegister flags;       // Aggregated flags (0 or 1 signals)
+        Memory memory;            // Composed memory
+        unsigned char PC;         // Program Counter, remembers which line of the assembly program is reading (1 byte, starts at 0)
+        unsigned char SI;         // Stack Index, count of how many things piled up (1 byte, starts at 0)
+        CustomStack<signed char> systemStack; // Temporary store number
 
-    unsigned char PC;         // Program Counter, remembers which line of the assembly program is reading (1 byte, starts at 0)
-    unsigned char SI;         // Stack Index, count of how many things piled up (1 byte, starts at 0)
-
-    CustomStack<signed char> systemStack; // Temporary store number
-
-public:
-    CPU() : PC(0), SI(0) {} // sets the program counter and stack index to 0 when cpu is first created
-
-    // Getters to allow instructions to manipulate CPU state
-    DataRegister* getRegister(int index) { return &R[index]; } // returns pointer to a specific data register, pointer gives the runner the memory address of the pointer
-    FlagRegister* getFlags() { return &flags; } // returns pointer to flag registers so the runner can check or update them
-    Memory* getMemory() { return &memory; } // returns a pointer to the main memory so the runner can load or store data
-
-    CustomStack<signed char>& getSystemStack() {return systemStack;}
-
-    unsigned char getPC() const { return PC; } // return the current line the Program Counter is on, const prevent changes on PC value
-    void incrementPC() { PC++; } // runner calls this after finishing an instruction, move program counter forward by 1, cpu knows to move to next line
-
-    unsigned char getSI() const { return SI; } //return the current number of items piled in the stack
-    void incrementSI() { SI++; } // increases stack index by 1 when a new item is added to stack
-    void decrementSI() { SI--; } // decreases stack index by 1 when a new item is removed from stack
-
-    void pushToStack(signed char value) {
-        systemStack.push(value); // puts the data into the customstack
-        incrementSI(); //updates counter so the cpu knows
-    }
-
-    // removes the top value from stack and gives it back to caller, & modifies the variable that runner passed into function directly
-    signed char popFromStack() {
-        signed char peek = systemStack.peek();
-        systemStack.pop();
-        decrementSI();
-        return peek;
-    }
+    public:
+        CPU() : PC(0), SI(0) {} // sets the program counter and stack index to 0 when cpu is first created
+        // Getters to allow instructions to manipulate CPU state
+        DataRegister* getRegister(int index) { return &R[index]; } // returns pointer to a specific data register, pointer gives the runner the memory address of the pointer
+        FlagRegister* getFlags() { return &flags; } // returns pointer to flag registers so the runner can check or update them
+        Memory* getMemory() { return &memory; } // returns a pointer to the main memory so the runner can load or store data
+        CustomStack<signed char>& getSystemStack() {return systemStack;}
+        unsigned char getPC() const { return PC; } // return the current line the Program Counter is on, const prevent changes on PC value
+        void incrementPC() { PC++; } // runner calls this after finishing an instruction, move program counter forward by 1, cpu knows to move to next line
+        unsigned char getSI() const { return SI; } //return the current number of items piled in the stack
+        void incrementSI() { SI++; } // increases stack index by 1 when a new item is added to stack
+        void decrementSI() { SI--; } // decreases stack index by 1 when a new item is removed from stack
+        void pushToStack(signed char value);
+        signed char popFromStack(); // removes the top value from stack and gives it back to caller, & modifies the variable that runner passed into function directly
 };
 
 // Abstract base class for all assembly commands
@@ -809,299 +792,28 @@ class StackInstruction : public Instruction {
 
 // Loads programs, decodes instructions, delegates execution to CPU
 class Runner {
-private:
-    CPU virtualMachine; // Composition, actual virtual machine that will do math and store data
-    CustomVector<Instruction*> program; // dynamic array vector that hold pointers to instructions
-    // uses polymorphism, holds generic instruction pointers, but they will point to specific types
+    private:
+        CPU virtualMachine; // Composition, actual virtual machine that will do math and store data
+        CustomVector<Instruction*> program; // dynamic array vector that hold pointers to instructions
+        // uses polymorphism, holds generic instruction pointers, but they will point to specific types
 
-    // helper function, checks if a line is empty or just spaces
-    bool isBlankLine(string dummy)
-    {
-        if (dummy.empty()) return true; // if there is zero character, return blank
-        for(int i=0; i < dummy.length(); i++) // look at every character in the string
-        {
-            if(dummy[i] != ' ' && dummy[i]!= '\t' && dummy[i]!= '\r' && dummy[i]!= '\n') // find anything that is not a space, tab or enter key, then not blank
-            return false;
-        }
-        return true; // if only found spaces or tabs, it is blank
-    }
+        bool isBlankLine(string dummy); // helper function, checks if a line is empty or just spaces
+        string format4(int num); // Helper function to pad numbers with leading zeroes (eg. 5 into 0005)
+        int numberReg(string dummy); // helper function, extracts the number from a register (eg. R1 becomes 1)
+        // acts as translator, the read text from file and figure whih instruction object to create
+        Instruction* MathAndLogic(const string& first, stringstream& rest);
+        Instruction* MemAndIO(const string& first, stringstream& rest);
+        Instruction* ShiftAndReset(const string& first, stringstream& rest);
+        string buildCpuStateString(); // build the shared cpu state to prevent repetition
 
-    // Helper function to pad numbers with leading zeroes (eg. 5 into 0005)
-    string format4(int num) {
-        stringstream belt;
-        // setfill('0') tells it to use zeroes.
-        // setw(4) tells it to make sure the string is exactly 4 characters wide.
-        belt << setfill('0') << setw(4) << num;
-        return belt.str(); //  convert the stream back into a normal string
-    }
-
-    // helper function, extracts the number from a register (eg. R1 becomes 1)
-    int numberReg(string dummy)
-    {
-        if(dummy.empty()) return 0; // if zero character, returns 0
-        if(dummy[0] == 'R' || dummy[0] == 'r') // check if the first letter is an R or r
-        {
-            string justNumber = dummy.substr(1); // extract everything after the R (e.g. grab the 1 from R1)
-            return stoi(justNumber); // convert the string 1 into integer 1
-        }
-        return 0;
-    }
-
-    // acts as translator, the read text from file and figure whih instruction object to create
-    Instruction* MathAndLogic(const string& first, stringstream& rest)
-    {
-        string dest,value;
-
-        // if the command is increment or decrement, only uses 1 register
-        if (first == "INC" || first == "DEC") {
-            rest >> dest; // read the next word (eg. R1)
-            return new ArithmeticInstruction(first, numberReg(dest));
-        }
-
-        // if its not INC, DEC, ADD, SUB, MUL, DIV, or MOV, this function cant handle it
-        if (first != "ADD" && first != "SUB" && first != "MUL" && first != "DIV" && first != "MOV") return nullptr;
-
-        // for math and mov, read the next two words (destination and value)
-        rest >> dest >> value;
-
-        // clean variable 'dest' (remove the trailing comma)
-        if (dest.back() == ',') {
-            dest.pop_back();
-        }
-
-        int reg = numberReg(dest); // convert R1 to 1
-
-        // handle move instructions which have diff modes
-        if (first == "MOV") {
-            if (value.front() == '[') {
-                // Register indirect [R1], we are moving based on a memory address stored in a register
-                string inner = value.substr(1, value.length() - 2); // strip the brackets to get R1
-                return new MoveInstruction(3, reg, numberReg(inner));
-            }
-            else if (value[0] == 'R' || value[0] == 'r'){
-                // Register to register (eg. MOV R1, R2)
-                return new MoveInstruction(2, reg, numberReg(value));
-            }
-            // immediate to register (eg. MOV R1, 5)
-            return new MoveInstruction(1, reg, stoi(value));
-        }
-        // if wasnt a MOV, it must be basic math operating
-        // check if the second value is a register (starting with R or r)
-        if (value[0] == 'R' || value[0] == 'r'){
-            // if its a register (eg. add r1, r2)
-            return new ArithmeticInstruction(first, reg, numberReg(value), false);// means not immediate)
-        }
-        // it is an immediate number (eg. add r1, 6)
-        else {
-            return new ArithmeticInstruction(first, reg, stoi(value), true);} // means its immediate
-            // to be changed after zr implement
-    }
-
-    Instruction* MemAndIO(const string& first, stringstream& rest) {
-        string a,b;
-        // input from keyboard or display to screen
-        if (first == "INPUT" || first == "DISPLAY"){
-            rest >> a;
-            return new IOInstruction(first, numberReg(a));
-        }
-
-        // stack command
-        if (first == "PUSH" || first == "POP"){
-            rest >> a;
-            return new StackInstruction(first, numberReg(a), virtualMachine.getSystemStack());
-        }
-
-        // loading from memory into a register
-        if (first == "LOAD"){
-            rest >> a >> b;
-            if (a.back() == ',') {a.pop_back();} // clean comma
-
-            if (b.front() == '[') {
-            b = b.substr(1, b.length() -2); // clean bracket
-
-            // if loading from an address stored inside a register, eg. Load R1, [R2]
-            if (b[0] == 'R' || b[0] == 'r') {
-                return new MoveInstruction(3, numberReg(a), numberReg(b)); }
-
-            // loading direct from a direct memory number, (eg. load R1, 20)
-            return new LoadStoreInstruction(1, numberReg(a), static_cast<signed char>(stoi(b)));
-            }
-        }
-
-        // storing from a register into a memory
-        if (first == "STORE"){
-            rest >> a >> b;
-            if (a.back() == ',') {a.pop_back();} // clean comma
-            
-            // if storing into an address pointed to by a register, eg. store R1, [R2]
-            if (b.front() == '['){
-                b = b.substr(1, b.length() - 2); // clean brackets
-                return new LoadStoreInstruction(3, numberReg(a), numberReg(b));
-            }
-            else if (a[0] == 'R' || a[0]== 'r') {
-            // storing directly into a specific memory slot (eg. store R3, 20), 20 is the memory address R3 is the register that holds the value to be stored
-            return new LoadStoreInstruction(2, numberReg(a), static_cast<signed char>(stoi(b)));
-            }
-            // stores into memory slot (eg. store 20, R3), this also stores the value in register 3 to memory 20
-            else  {
-                return new LoadStoreInstruction(2, numberReg(b), static_cast<signed char>(stoi(a)));
-            }
-        }
-        return nullptr; // return nothing if nothing matches this category
-    }
-
-    Instruction* ShiftAndReset(const string& first, stringstream& rest) {
-        string a,b;
-
-        // clearing the flags
-        if (first == "RESET"){
-            rest >> a;
-            return new ResetFlagsInstruction(a);
-        }
-
-        // if its not a shift or rotate command, exit early
-        if (first != "SHL" && first != "SHR" && first != "ROL" && first != "ROR") return nullptr;
-
-        rest >> a >> b;
-
-        if (a.back() == ','){a.pop_back();} //clean comma
-        int reg = numberReg(a); //which register to shift
-        int count = stoi(b); // how many times to shift it
-        return new ShiftInstruction(first, reg, count);
-    }
-
-    // build the shared cpu state to prevent repetition
-    string buildCpuStateString(){
-        stringstream out;
-        out << "#Begin#\n";
-        
-        out << "#Registers#";
-        for (int i = 0; i < 8; i++) {
-            out << format4((int)virtualMachine.getRegister(i)->getValue()) << "#";
-        }
-        out << "\n";
-
-        FlagRegister* f = virtualMachine.getFlags();
-        out << "#Flags#OF#" << f->getOF() << "#UF#" << f->getUF() << "#CF#" << f->getCF() << "#ZF#" << f->getZF() << "#\n";
-
-        out << "#PC#" << format4((int)virtualMachine.getPC()) << "#\n";
-        
-        return out.str();
-    }
-
-public:
-    Runner() {}  // default constructor
-
-    // destructor to clean up dynamic allocated memory, prevent memory leak
-    ~Runner() 
-    {
-        for (int i = 0; i < program.size(); i++)
-        {delete program.at(i);}
-    }
-
-    // loads asm file, read it, translate into instructions
-    void loadProgram(const string& filename) {
-        // Read .asm file line by line
-        // Decode strings into Instruction objects
-        // Store in CustomVector
-        ifstream file(filename);
-        if(!file.is_open()){
-            cout << "Error: Could not open file" << filename << "\n";
-            exit(1); // crash if the file does not exist
-        }
-
-        //store into queue
-        CustomQueue<string> lineQueue;
-        string line;
-
-        // read every line from the file, and put it in a queue
-        while(getline(file,line))
-        {
-            if(isBlankLine(line)) continue; // skip empty lines
-            lineQueue.enqueue(line); // put the line back at the queue
-        }
-        file.close(); // close the file when done
-
-        // take lines out the queue one by one, translate them and put them into a vector
-        while(!lineQueue.isEmpty())
-        {
-            string currentLine = lineQueue.front();
-            lineQueue.dequeue();
-
-            stringstream lineStream(currentLine); // turn the string into a stream to read word by word
-            string first;
-            lineStream >> first; // read the first word (eg. ADD)
-
-            // try to translate the instruction by passing it into our 3 parser functions, if the first cant handle it, then returns nullptr, so we try MemAndIO
-            Instruction* inst = MathAndLogic(first, lineStream);
-            if (!inst) inst = MemAndIO(first, lineStream);
-            if (!inst) inst = ShiftAndReset(first, lineStream);
-        
-            // if one of the parsers successfully created an instruction, save it
-            if (inst) program.push_back(inst); 
-            else cout << "Warning: Unrecognized command -> " << first << "\n";
-        }
-    }
-
-    // loops through the saved instructions and tells the CPU to perform them
-    void executeProgram(bool saveToFile = false, const string& outputFilename = "output.txt") {
-        // try-catch blocks protect the program from crashing
-
-        ofstream outFile;
-        
-        outFile.open(outputFilename);
-        try {
-            // loop through our vector of instructions from top to bottom
-            for (int i = 0; i < program.size(); i++)
-            {
-                // tell the specific instruction to execute itself on our virtual machine
-                program.at(i) ->execute(virtualMachine); // move the program counter forward by 1
-                virtualMachine.incrementPC(); // move the program counter forward by 1
-
-                // Always display execution on screen
-                dumpStateToScreen();
-
-                dumpStateToFile(outFile);
-            }
-        }
-        // if an error was thrown inside execute(), catch it here and print a safe error message
-        catch(const VMException& e)
-        {
-            cout << "\n Error: " << e.getErrorMessage() << "\n Stopping";
-            outFile << "\n Error: " << e.getErrorMessage() << "\n Stopping\n";
-        }
-
-        outFile.close();
-    }
-
-    // screen output 
-    void dumpStateToScreen(){
-        cout << buildCpuStateString();
-
-        virtualMachine.getMemory()-> displayMemory();
-
-        cout << "#End#\n";
-    }
-
-    // file output
-    void dumpStateToFile(ofstream& outFile){
-        outFile << buildCpuStateString();
-
-        outFile << "#Memory#\n";
-        Memory* mem = virtualMachine.getMemory();
-        for (int row = 0; row < 8; row++) {
-            outFile << "#";
-            for (int col = 0; col < 8; col++) {
-                // Integer cast prevents ASCII symbols from ruining the file
-                outFile << format4((int)mem->read((row * 8) + col)) << "#";
-            }
-            outFile << "\n"; 
-        }
-
-        outFile << "#End#\n";
-    }
-
-    };
+    public:
+        Runner() {}  // default constructor
+        ~Runner(); // destructor to clean up dynamic allocated memory, prevent memory leak
+        void loadProgram(const string& filename); // loads asm file, read it, translate into instructions
+        void executeProgram(bool saveToFile = false, const string& outputFilename = "output.txt"); // loops through the saved instructions and tells the CPU to perform them
+        void dumpStateToScreen(); // screen output
+        void dumpStateToFile(ofstream& outFile); // file output
+};
 
 // ==========================================
 // Class Implementation
@@ -1276,6 +988,26 @@ CustomQueue<T> &CustomQueue<T>::operator=(const CustomQueue<T> &right)
     return *this;
 }
 
+void FlagRegister::flagArithmeticSetter(unsigned char oper1, unsigned char oper2, int result)
+{
+    setCF(checkCF(result));
+    setOF(checkOF(oper1, oper2, static_cast<unsigned char>(result)));
+    setUF(checkUF(oper1, oper2, static_cast<unsigned char>(result)));
+    setZF(checkZF(static_cast<signed char>(result)));
+}
+
+void FlagRegister::flagIOSetter(int input)
+{
+    setOF(input > 127);
+    setUF(input < -128);
+    setZF(input == 0);
+}
+
+void FlagRegister::flagLogicalSetter(unsigned char result)
+{
+    setZF(checkZF(static_cast<signed char>(result)));
+}
+
 Memory::Memory() // Default constructor
 {
     for (int i = 0; i < 64; ++i) {
@@ -1333,24 +1065,18 @@ void Memory::displayMemory()
     cout << endl;
 }
 
-void FlagRegister::flagArithmeticSetter(unsigned char oper1, unsigned char oper2, int result)
+void CPU::pushToStack(signed char value)
 {
-    setCF(checkCF(result));
-    setOF(checkOF(oper1, oper2, static_cast<unsigned char>(result)));
-    setUF(checkUF(oper1, oper2, static_cast<unsigned char>(result)));
-    setZF(checkZF(static_cast<signed char>(result)));
+    systemStack.push(value); // puts the data into the customstack
+    incrementSI(); //updates counter so the cpu knows
 }
 
-void FlagRegister::flagIOSetter(int input)
+signed char CPU::popFromStack()
 {
-    setOF(input > 127);
-    setUF(input < -128);
-    setZF(input == 0);
-}
-
-void FlagRegister::flagLogicalSetter(unsigned char result)
-{
-    setZF(checkZF(static_cast<signed char>(result)));
+    signed char peek = systemStack.peek();
+    systemStack.pop();
+    decrementSI();
+    return peek;
 }
 
 int ArithmeticInstruction::compute(int v1, int v2){
@@ -1567,6 +1293,285 @@ void StackInstruction::execute(CPU& cpu)
     } else {
         throw VMException("Invalid PUSH or POP operation."); // Prevent unexpected value passing into operation
     }
+}
+
+bool Runner::isBlankLine(string dummy)
+{
+    if (dummy.empty()) return true; // if there is zero character, return blank
+    for(int i=0; i < dummy.length(); i++) // look at every character in the string
+    {
+        if(dummy[i] != ' ' && dummy[i]!= '\t' && dummy[i]!= '\r' && dummy[i]!= '\n') // find anything that is not a space, tab or enter key, then not blank
+            return false;
+    }
+    return true; // if only found spaces or tabs, it is blank
+}
+
+string Runner::format4(int num)
+{
+    stringstream belt;
+    // setfill('0') tells it to use zeroes.
+    // setw(4) tells it to make sure the string is exactly 4 characters wide.
+    belt << setfill('0') << setw(4) << num;
+    return belt.str(); //  convert the stream back into a normal string
+}
+
+int Runner::numberReg(string dummy)
+{
+    if(dummy.empty()) return 0; // if zero character, returns 0
+    if(dummy[0] == 'R' || dummy[0] == 'r') // check if the first letter is an R or r
+    {
+        string justNumber = dummy.substr(1); // extract everything after the R (e.g. grab the 1 from R1)
+        return stoi(justNumber); // convert the string 1 into integer 1
+    }
+    return 0;
+}
+
+Instruction* Runner::MathAndLogic(const string& first, stringstream& rest)
+{
+    string dest,value;
+
+    // if the command is increment or decrement, only uses 1 register
+    if (first == "INC" || first == "DEC") {
+        rest >> dest; // read the next word (eg. R1)
+        return new ArithmeticInstruction(first, numberReg(dest));
+    }
+
+    // if its not INC, DEC, ADD, SUB, MUL, DIV, or MOV, this function cant handle it
+    if (first != "ADD" && first != "SUB" && first != "MUL" && first != "DIV" && first != "MOV") return nullptr;
+
+    // for math and mov, read the next two words (destination and value)
+    rest >> dest >> value;
+
+    // clean variable 'dest' (remove the trailing comma)
+    if (dest.back() == ',') {
+        dest.pop_back();
+    }
+
+    int reg = numberReg(dest); // convert R1 to 1
+
+    // handle move instructions which have diff modes
+    if (first == "MOV") {
+        if (value.front() == '[') {
+            // Register indirect [R1], we are moving based on a memory address stored in a register
+            string inner = value.substr(1, value.length() - 2); // strip the brackets to get R1
+            return new MoveInstruction(3, reg, numberReg(inner));
+        }
+        else if (value[0] == 'R' || value[0] == 'r'){
+            // Register to register (eg. MOV R1, R2)
+            return new MoveInstruction(2, reg, numberReg(value));
+        }
+        // immediate to register (eg. MOV R1, 5)
+        return new MoveInstruction(1, reg, stoi(value));
+    }
+    // if wasnt a MOV, it must be basic math operating
+    // check if the second value is a register (starting with R or r)
+    if (value[0] == 'R' || value[0] == 'r'){
+        // if its a register (eg. add r1, r2)
+        return new ArithmeticInstruction(first, reg, numberReg(value), false);// means not immediate)
+    }
+    // it is an immediate number (eg. add r1, 6)
+    else {
+        return new ArithmeticInstruction(first, reg, stoi(value), true);} // means its immediate
+        // to be changed after zr implement
+}
+
+Instruction* Runner::MemAndIO(const string& first, stringstream& rest)
+{
+    string a,b;
+    // input from keyboard or display to screen
+    if (first == "INPUT" || first == "DISPLAY"){
+        rest >> a;
+        return new IOInstruction(first, numberReg(a));
+    }
+
+    // stack command
+    if (first == "PUSH" || first == "POP"){
+        rest >> a;
+        return new StackInstruction(first, numberReg(a), virtualMachine.getSystemStack());
+    }
+
+    // loading from memory into a register
+    if (first == "LOAD"){
+        rest >> a >> b;
+        if (a.back() == ',') {a.pop_back();} // clean comma
+
+        if (b.front() == '[') {
+            b = b.substr(1, b.length() -2); // clean bracket
+
+            // if loading from an address stored inside a register, eg. Load R1, [R2]
+            if (b[0] == 'R' || b[0] == 'r') {
+                return new MoveInstruction(3, numberReg(a), numberReg(b)); }
+
+            // loading direct from a direct memory number, (eg. load R1, 20)
+            return new LoadStoreInstruction(1, numberReg(a), static_cast<signed char>(stoi(b)));
+        }
+    }
+
+    // storing from a register into a memory
+    if (first == "STORE"){
+        rest >> a >> b;
+        if (a.back() == ',') {a.pop_back();} // clean comma
+            
+        // if storing into an address pointed to by a register, eg. store R1, [R2]
+        if (b.front() == '['){
+            b = b.substr(1, b.length() - 2); // clean brackets
+            return new LoadStoreInstruction(3, numberReg(a), numberReg(b));
+        }
+        else if (a[0] == 'R' || a[0]== 'r') {
+            // storing directly into a specific memory slot (eg. store R3, 20), 20 is the memory address R3 is the register that holds the value to be stored
+            return new LoadStoreInstruction(2, numberReg(a), static_cast<signed char>(stoi(b)));
+        }
+        // stores into memory slot (eg. store 20, R3), this also stores the value in register 3 to memory 20
+        else  {
+            return new LoadStoreInstruction(2, numberReg(b), static_cast<signed char>(stoi(a)));
+        }
+    }
+    return nullptr; // return nothing if nothing matches this category
+}
+
+Instruction* Runner::ShiftAndReset(const string& first, stringstream& rest)
+{
+    string a,b;
+
+    // clearing the flags
+    if (first == "RESET"){
+        rest >> a;
+        return new ResetFlagsInstruction(a);
+    }
+
+    // if its not a shift or rotate command, exit early
+    if (first != "SHL" && first != "SHR" && first != "ROL" && first != "ROR") return nullptr;
+
+    rest >> a >> b;
+
+    if (a.back() == ','){a.pop_back();} //clean comma
+    int reg = numberReg(a); //which register to shift
+    int count = stoi(b); // how many times to shift it
+    return new ShiftInstruction(first, reg, count);
+}
+
+string Runner::buildCpuStateString()
+{
+    stringstream out;
+    out << "#Begin#\n";
+        
+    out << "#Registers#";
+    for (int i = 0; i < 8; i++) {
+        out << format4((int)virtualMachine.getRegister(i)->getValue()) << "#";
+    }
+    out << "\n";
+
+    FlagRegister* f = virtualMachine.getFlags();
+    out << "#Flags#OF#" << f->getOF() << "#UF#" << f->getUF() << "#CF#" << f->getCF() << "#ZF#" << f->getZF() << "#\n";
+
+    out << "#PC#" << format4((int)virtualMachine.getPC()) << "#\n";
+        
+    return out.str();
+}
+
+Runner::~Runner()
+{
+    for (int i = 0; i < program.size(); i++)
+        {delete program.at(i);}
+}
+
+void Runner::loadProgram(const string& filename)
+{
+    // Read .asm file line by line
+    // Decode strings into Instruction objects
+    // Store in CustomVector
+    ifstream file(filename);
+    if(!file.is_open()){
+        cout << "Error: Could not open file" << filename << "\n";
+        exit(1); // crash if the file does not exist
+    }
+
+    //store into queue
+    CustomQueue<string> lineQueue;
+    string line;
+
+    // read every line from the file, and put it in a queue
+    while(getline(file,line))
+    {
+        if(isBlankLine(line)) continue; // skip empty lines
+        lineQueue.enqueue(line); // put the line back at the queue
+    }
+    file.close(); // close the file when done
+
+    // take lines out the queue one by one, translate them and put them into a vector
+    while(!lineQueue.isEmpty())
+    {
+        string currentLine = lineQueue.front();
+        lineQueue.dequeue();
+
+        stringstream lineStream(currentLine); // turn the string into a stream to read word by word
+        string first;
+        lineStream >> first; // read the first word (eg. ADD)
+
+        // try to translate the instruction by passing it into our 3 parser functions, if the first cant handle it, then returns nullptr, so we try MemAndIO
+        Instruction* inst = MathAndLogic(first, lineStream);
+        if (!inst) inst = MemAndIO(first, lineStream);
+        if (!inst) inst = ShiftAndReset(first, lineStream);
+        
+        // if one of the parsers successfully created an instruction, save it
+        if (inst) program.push_back(inst); 
+        else cout << "Warning: Unrecognized command -> " << first << "\n";
+    }
+}
+
+void Runner::executeProgram(bool saveToFile, const string& outputFilename)
+{
+    ofstream outFile;
+    outFile.open(outputFilename);
+
+    // try-catch blocks protect the program from crashing
+    try {
+        // loop through our vector of instructions from top to bottom
+        for (int i = 0; i < program.size(); i++)
+        {
+            // tell the specific instruction to execute itself on our virtual machine
+            program.at(i) ->execute(virtualMachine); // move the program counter forward by 1
+            virtualMachine.incrementPC(); // move the program counter forward by 1
+
+            // Always display execution on screen
+            dumpStateToScreen();
+
+            dumpStateToFile(outFile);
+        }
+    }
+    // if an error was thrown inside execute(), catch it here and print a safe error message
+    catch(const VMException& e)
+    {
+        cout << "\n Error: " << e.getErrorMessage() << "\n Stopping";
+        outFile << "\n Error: " << e.getErrorMessage() << "\n Stopping\n";
+    }
+
+    outFile.close();
+}
+
+void Runner::dumpStateToScreen()
+{
+    cout << buildCpuStateString();
+    virtualMachine.getMemory()-> displayMemory();
+    cout << "#End#\n";
+}
+
+void Runner::dumpStateToFile(ofstream& outFile)
+{
+    outFile << buildCpuStateString();
+
+    outFile << "#Memory#\n";
+    Memory* mem = virtualMachine.getMemory();
+    for (int row = 0; row < 8; row++) {
+        outFile << "#";
+        for (int col = 0; col < 8; col++) {
+            // Integer cast prevents ASCII symbols from ruining the file
+            outFile << format4((int)mem->read((row * 8) + col)) << "#";
+        }
+        outFile << "\n"; 
+    }
+
+    outFile << "#End#\n";
 }
 
 // ==========================================
