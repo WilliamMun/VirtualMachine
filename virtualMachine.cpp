@@ -735,13 +735,13 @@ class LoadStoreInstruction : public Instruction {
          * @details      Use when handling instruction with mode 1: LOAD <Register>, [<Address>] and mode 2: STORE <Register>, <Address>
          * @param m      Integer value represent mode of load or store instruction.
          * @param dRI    Integer value represent data register index
-         * @param memAdd Integer value represent memory address (index of array with 64 elements)
+         * @param memAdd Signed char value represent memory address (index of array with 64 elements)
          * @pre          m should be in range 1-3, dRI should be in range 0-7, memAdd should be in range 0-63
          * @throw        VMException if m smaller than 1 or larger than 3, dRI smaller than 0 or larger than 7, memAdd smaller than 0 larger than 63.
          * @post         Created a new LoadStoreInstruction object.
          * @author       Mun William
          */
-        LoadStoreInstruction(int m, int dRI, int memAdd);
+        LoadStoreInstruction(int m, int dRI, signed char memAdd);
 
         /**
          * @brief     Parameterized constructor. Constructs a new load or store instruction object.
@@ -924,7 +924,7 @@ private:
                 return new MoveInstruction(3, numberReg(a), numberReg(b)); }
 
             // loading direct from a direct memory number, (eg. load R1, 20)
-            return new LoadStoreInstruction(1, numberReg(a), stoi(b));
+            return new LoadStoreInstruction(1, numberReg(a), static_cast<signed char>(stoi(b)));
             }
         }
 
@@ -940,11 +940,11 @@ private:
             }
             else if (a[0] == 'R' || a[0]== 'r') {
             // storing directly into a specific memory slot (eg. store R3, 20), 20 is the memory address R3 is the register that holds the value to be stored
-            return new LoadStoreInstruction(2, numberReg(a), stoi(b));
+            return new LoadStoreInstruction(2, numberReg(a), static_cast<signed char>(stoi(b)));
             }
             // stores into memory slot (eg. store 20, R3), this also stores the value in register 3 to memory 20
             else  {
-                return new LoadStoreInstruction(2, numberReg(b), stoi(a));
+                return new LoadStoreInstruction(2, numberReg(b), static_cast<signed char>(stoi(a)));
             }
         }
         return nullptr; // return nothing if nothing matches this category
@@ -1475,7 +1475,7 @@ void ResetFlagsInstruction::execute(CPU& cpu)
     else if (targetFlag == "UF") flags->setUF(false);
 }
 
-LoadStoreInstruction::LoadStoreInstruction(int m, int dRI, int memAdd)
+LoadStoreInstruction::LoadStoreInstruction(int m, int dRI, signed char memAdd)
 {
     addressRegisterIndex = -1;
 
@@ -1485,8 +1485,9 @@ LoadStoreInstruction::LoadStoreInstruction(int m, int dRI, int memAdd)
         throw VMException("Invalid LOAD or STORE instruction format.");
     }
 
-    if(memAdd >= 0 && memAdd < 64){
-        memoryAddress = memAdd;
+    int memAddCast = static_cast<int>(memAdd);
+    if(memAddCast >= 0 && memAddCast < 64){
+        memoryAddress = memAddCast;
     } else {
         throw VMException("Memory address out of bound. Memory address only ranged from 0 to 63.");
     }
