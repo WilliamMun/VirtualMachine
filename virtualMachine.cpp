@@ -1,6 +1,5 @@
 #include <iostream>
 #include <string>
-#include <stdexcept>
 #include <iomanip>
 #include <sstream>
 #include <fstream>
@@ -14,33 +13,26 @@ class VMException {
         const char* getErrorMessage() const { return errorMessage; }
 };
 
+/**
+ * @brief   [Describe briefly what does this class use for.]
+ * @details [Explain briefly why vector need to be created rather than using array. How it fits to other data structures.]
+ * @author  Ong Zhong Yik
+ */
 template <typename T>
 class CustomVector {
     private:
-        /**
-         * @brief  Pointer to the dynamically allocated array that stores the elements.
-         * @note   Memory is managed manually. It grows when resize() is called and is freed in the destructor.
-         * @author Ong Zhong Yik
-         */
+        // Pointer to the dynamically allocated array that stores the elements.
         T* arr;
 
-        /**
-         * @brief  The total number of elements the vector can currently hold before needing to allocate more memory.
-         * @note   This value doubles every time the vector runs out of space.
-         * @author Ong Zhong Yik
-         */
+        // The total number of elements the vector can currently hold before needing to allocate more memory.
         int capacity;
 
-        /**
-         * @brief  The actual number of valid elements currently stored in the vector.
-         * @note   This is used to keep track of the logical size, which is always less than or equal to capacity.
-         * @author Ong Zhong Yik
-         */
+        // The actual number of valid elements currently stored in the vector.
         int current_size;
 
         /**
          * @brief  Helper function to double the capacity of the array when it becomes full.
-         * @note   Allocates a new larger array, copies existing elements over, and safely deletes the old array to prevent memory leaks.
+         * @post   Allocates a new larger array, copies existing elements over, and safely deletes the old array to prevent memory leaks.
          * @author Ong Zhong Yik
          */
         void resize();
@@ -48,96 +40,122 @@ class CustomVector {
     public:
         /**
          * @brief  Default Constructor. Initializes an empty vector.
-         * @note   Sets empty vector to initial dynamic memory.
+         * @post   Sets empty vector to initial dynamic memory.
          * @author Ong Zhong Yik
          */
         CustomVector();
 
         /**
          * @brief  Destructor. Destroys the CustomVector object and frees allocated memory.
-         * @note   Uses delete[] to safely release the dynamically allocated array back to the system, preventing memory leaks.
+         * @post   Uses delete[] to safely release the dynamically allocated array back to the system, preventing memory leaks.
          * @author Ong Zhong Yik
          */
         ~CustomVector() { delete[] arr; }
 
         /**
-         * @brief  Copy Constructor. Creates a new vector as a deep copy of another vector.
-         * @note   Allocates a completely new independent memory block to avoid double-free errors and shallow copy issues.
-         * @author Ong Zhong Yik
+         * @brief       Copy Constructor. Creates a new vector as a deep copy of another vector.
+         * @param right [Explain what is this parameter]
+         * @post        Allocates a completely new independent memory block to avoid double-free errors and shallow copy issues.
+         * @author      Ong Zhong Yik
          */
         CustomVector(const CustomVector<T>& right);
 
         /**
-         * @brief  Adds a new element to the end of the vector.
-         * @note   Automatically triggers the resize() function if the current size reaches the maximum capacity.
-         * @author Ong Zhong Yik
+         * @brief         Adds a new element to the end of the vector.
+         * @note          Automatically triggers the resize() function if the current size reaches the maximum capacity.
+         * @param element [Explain what is this parameter]
+         * @post          [What happens after execute this function]
+         * @author        Ong Zhong Yik
          */
         void push_back(T element);
 
         /**
          * @brief  Removes the last element from the vector.
-         * @note   Explicitly calls the destructor of the object being removed (.~T()) to ensure complete memory cleanup, then shrinks the logical size. Throws underflow_error if empty.
+         * @pre    [Describe what is condition need to fulfill before this function be called so that it won't trigger throw exception.]
+         * @post   Explicitly calls the destructor of the object being removed (.~T()) to ensure complete memory cleanup, then shrinks the logical size. 
+         * @throw  VMException if [when exception is throw]
          * @author Ong Zhong Yik
          */
         void pop_back();
 
         /**
-         * @brief  Accesses the element at the specified index with strict boundary checking.
-         * @note   Throws out_of_range exception if the index is negative or greater than/equal to the current size. Safe for read operations.
-         * @author Ong Zhong Yik
+         * @brief       Accesses the element at the specified index with strict boundary checking.
+         * @note        [Describe about 'const']
+         * @pre         [Describe what is condition need to fulfill before this function be called so that it won't trigger throw exception.]
+         * @param index [Explain what is this parameter]
+         * @throws      VMException if [when exception is throw]
+         * @return      [What is return]
+         * @author      Ong Zhong Yik
          */
         T at(int index) const;
 
         /**
-         * @brief  Overloaded array subscript operator for accessing and modifying elements.
-         * @note   Returns a reference to the element. Throws out_of_range exception if the index is invalid.
-         * @author Ong Zhong Yik
+         * @brief       Overloaded array subscript operator for accessing and modifying elements.
+         * @pre         [Describe what is condition need to fulfill before this function be called so that it won't trigger throw exception.]
+         * @param index [Explain what is this parameter]
+         * @throws      VMException if [when exception is throw]
+         * @return      Reference to the element. 
+         * @author      Ong Zhong Yik
          */
         T &operator[](int index);
         
         /**
-         * @brief  Overloaded array subscript operator for accessing elements (read-only).
-         * @note   Used when the vector is passed as a constant reference. Throws out_of_range exception if the index is invalid.
-         * @author Ong Zhong Yik
+         * @brief       Overloaded array subscript operator for accessing elements (read-only).
+         * @note        Used when the vector is passed as a constant reference. [Describe about 'const']
+         * @pre         [Describe what is condition need to fulfill before this function be called so that it won't trigger throw exception.]
+         * @param index [Explain what is this parameter]
+         * @throws      VMException if [when exception is throw]
+         * @return      [What is return]
+         * @author      Ong Zhong Yik
          */
         const T &operator[](int index) const;
 
         /**
          * @brief  Returns the current number of valid elements inside the vector.
-         * @note   This returns current_size, not the total capacity.
+         * @note   [Describe about 'const']
+         * @return [What is return]
          * @author Ong Zhong Yik
          */
         int size() const { return current_size; }
 
         /**
-         * @brief  Removes an element at a specific index.
-         * @note   Calls the destructor on the target element and shifts all subsequent elements one step forward to fill the gap. Throws out_of_range exception if index is invalid.
-         * @author Ong Zhong Yik
+         * @brief       Removes an element at a specific index.
+         * @pre         [Describe what is condition need to fulfill before this function be called so that it won't trigger throw exception.]
+         * @param index [Explain what is this parameter]
+         * @throws      VMException if [when exception is throw]
+         * @post        Calls the destructor on the target element and shifts all subsequent elements one step forward to fill the gap. 
+         * @author      Ong Zhong Yik
          */
         void erase(int index);
 
         /**
-         * @brief  Copy Assignment Operator. Assigns the contents of one vector to another.
-         * @note   Safely handles self-assignment, deletes the old memory block, and performs a deep copy of the new data.
-         * @author Ong Zhong Yik
+         * @brief       Copy Assignment Operator. Assigns the contents of one vector to another.
+         * @note        [Describe about 'const']
+         * @param right [Explain what is this parameter]
+         * @post        Safely handles self-assignment, deletes the old memory block, and performs a deep copy of the new data.
+         * @return      [What is return]
+         * @author      Ong Zhong Yik
          */
         CustomVector& operator=(const CustomVector<T> &right);
 };
 
+/**
+ * @brief   [Describe briefly what does this class use for.]
+ * @details [Explain briefly why stack design to push & pop & peek only, but dont have [] operator and at().]
+ * @author  Ong Zhong Yik
+ */
 template <typename T>
 class CustomStack {
     private:
-        /**
-         * @brief  The underlying dynamic array used to store the stack's elements.
-         * @note   Uses Composition. Delegating memory management to CustomVector makes the stack infinitely expandable.
-         * @author Ong Zhong Yik
-         */
+        
+        // Composition of CustomVector. The underlying dynamic array used to store the stack's elements.
         CustomVector<T> data;
 
     public:
         /**
          * @brief  Default Constructor. Initializes an empty stack.
          * @note   No manual allocation needed here; the underlying CustomVector handles its own initial setup.
+         * @post   A CustomStack object is created.
          * @author Ong Zhong Yik
          */
         CustomStack() {}
@@ -145,75 +163,85 @@ class CustomStack {
         /**
          * @brief  Destructor. Cleans up the stack when it is destroyed.
          * @note   Left empty because the CustomVector's destructor will automatically be triggered to free the memory.
+         * @post   CustomStack object is destroyed.
          * @author Ong Zhong Yik
          */
         ~CustomStack() {}
 
         /**
-         * @brief  Copy Constructor. Creates a new stack as a deep copy of an existing stack.
-         * @note   Uses an initialization list to directly delegate the deep copy process to CustomVector's copy constructor.
-         * @author Ong Zhong Yik
+         * @brief       Copy Constructor. Creates a new stack as a deep copy of an existing stack.
+         * @details     Uses an initialization list to directly delegate the deep copy process to CustomVector's copy constructor. 
+         * @note        [Describe about 'const']
+         * @param right [Explain what is this parameter]
+         * @post        A new identical copy of CustomStack object is created.
+         * @author      Ong Zhong Yik
          */
         CustomStack(const CustomStack<T>& right) : data(right.data) {}
 
         /**
-         * @brief  Copy Assignment Operator. Assigns the data of one stack to another.
-         * @note   Delegates the assignment logic and safe memory handling to CustomVector's assignment operator.
-         * @author Ong Zhong Yik
+         * @brief       Copy Assignment Operator. Assigns the data of one stack to another.
+         * @details     Delegates the assignment logic and safe memory handling to CustomVector's assignment operator. 
+         * @note        [Describe about 'const']
+         * @param right [Explain what is this parameter]
+         * @return      [What is return]
+         * @author      Ong Zhong Yik
          */
         CustomStack& operator=(const CustomStack<T>& right);
 
         /**
-         * @brief  Pushes a new element onto the top of the stack (Last-In).
-         * @note   Directly calls CustomVector's push_back() method, allowing for dynamic resizing if needed.
-         * @author Ong Zhong Yik
+         * @brief         Pushes a new element onto the top of the stack (Last-In).
+         * @details       Directly calls CustomVector's push_back() method, allowing for dynamic resizing if needed.
+         * @param element [Explain what is this parameter]
+         * @post          [What happened after this function executed]
+         * @author        Ong Zhong Yik
          */
         void push(T element) { data.push_back(element); }
 
         /**
-         * @brief  Removes the top element from the stack (First-Out).
-         * @note   Should call CustomVector's pop_back() method. Must throw an underflow_error if the stack is already empty.
-         * @author Ong Zhong Yik
+         * @brief   Removes the top element from the stack (First-Out).
+         * @details Call CustomVector's pop_back() method. 
+         * @pre     Stack should not be empty.
+         * @throws  VMException if the stack is empty.
+         * @post    [What happened after this function executed]
+         * @author  Ong Zhong Yik
          */
         void pop();
 
         /**
          * @brief  Checks whether the stack is currently empty.
-         * @note   Returns true if the underlying CustomVector's size is 0.
+         * @note   [Describe about 'const']
+         * @return Returns true if the underlying CustomVector's size is 0.
          * @author Ong Zhong Yik
          */
         bool isEmpty() const { return data.size() == 0; }
 
         /**
-         * @brief  Checks whether the stack has reached its maximum capacity.
-         * @note   Fixed to return true. Since the stack is backed by a dynamically expanding CustomVector, it is never technically full.
-         * @author Ong Zhong Yik
-         */
-        bool isFull() const { return true; } 
-
-        /**
          * @brief  Retrieves the top element of the stack without removing it.
-         * @note   Should return the last element of the CustomVector. Throws an underflow_error if the stack is empty.
+         * @note   [Describe about 'const']
+         * @pre    Stack should not be empty.
+         * @throws VMException if the stack is empty.
+         * @return Return the last element of the CustomVector. 
          * @author Ong Zhong Yik
          */
         T peek() const;
 };
 
-
+/**
+ * @brief   [Describe briefly what does this class use for.]
+ * @details [Explain briefly why queue design to enqueue & dequeue & front only, but dont have [] operator and at().]
+ * @author  Ong Zhong Yik
+ */
 template <typename T>
 class CustomQueue {
     private:
-        /**
-         * @brief  The underlying dynamic array used to store the queue's elements.
-         * @note   Uses Composition. Delegating memory management to CustomVector removes the need for complex circular array logic (like calculating maxCapacity or using modulo).
-         * @author Ong Zhong Yik
-         */
+        // Composition of CustomVector. The underlying dynamic array used to store the queue's elements.
         CustomVector<T> data;
 
     public:
         /**
          * @brief  Default Constructor. Initializes an empty queue.
          * @note   No manual memory allocation needed here; the underlying CustomVector safely handles its own initialization.
+         * @post   A CustomQueue object is created.
          * @author Ong Zhong Yik
          */
         CustomQueue() {}
@@ -221,49 +249,65 @@ class CustomQueue {
         /**
          * @brief  Destructor. Cleans up the queue when it is destroyed.
          * @note   Left empty because the CustomVector's destructor will automatically be triggered when the queue goes out of scope, safely freeing the memory.
+         * @post   CustomQueue object is destroyed.
          * @author Ong Zhong Yik
          */
         ~CustomQueue() {}
 
         /**
-         * @brief  Copy Constructor. Creates a new queue as a deep copy of an existing queue.
-         * @note   Uses an initialization list to directly delegate the deep copy process to CustomVector's highly secure copy constructor.
-         * @author Ong Zhong Yik
+         * @brief       Copy Constructor. Creates a new queue as a deep copy of an existing queue.
+         * @details     Uses an initialization list to directly delegate the deep copy process to CustomVector's highly secure copy constructor.
+         * @note        [Describe about 'const']
+         * @param right [Explain what is this parameter]
+         * @post        A new identical copy of CustomQueue object is created.
+         * @author      Ong Zhong Yik
          */
         CustomQueue(const CustomQueue<T>& right) : data(right.data) {}
 
         /**
-         * @brief  Adds a new element to the back of the queue (First-In).
-         * @note   Directly calls CustomVector's push_back() method, allowing the queue to expand dynamically without ever getting "full".
-         * @author Ong Zhong Yik
+         * @brief         Adds a new element to the back of the queue (First-In).
+         * @details       Directly calls CustomVector's push_back() method, allowing the queue to expand dynamically without ever getting "full".
+         * @param element [Explain what is this parameter]
+         * @post          [What happened after this function executed]
+         * @author        Ong Zhong Yik
          */
         void enqueue(T element) { data.push_back(element); }
 
         /**
-         * @brief  Removes the front element from the queue (First-Out).
-         * @note   Should call CustomVector's erase(0) method so all trailing elements automatically shift forward. Must throw an underflow_error if the queue is empty.
-         * @author Ong Zhong Yik
+         * @brief   Removes the front element from the queue (First-Out).
+         * @details Call CustomVector's erase(0) method so all trailing elements automatically shift forward. 
+         * @pre     Queue should not be empty.
+         * @throws  VMExcpetion if the queue is empty.
+         * @post    [What happened after this function executed]
+         * @author  Ong Zhong Yik
          */
         void dequeue();
 
         /**
          * @brief  Checks whether the queue is currently empty.
-         * @note   Returns true if the underlying CustomVector's size is 0.
+         * @note   [Describe about 'const']
+         * @return Returns true if the underlying CustomVector's size is 0.
          * @author Ong Zhong Yik
          */
         bool isEmpty() const { return data.size() == 0; }
 
         /**
          * @brief  Retrieves the front element of the queue without removing it.
-         * @note   Should return the first element (index 0) of the CustomVector. Throws an underflow_error if the queue is empty.
+         * @note   [Describe about 'const']
+         * @pre    Queue should not be empty.
+         * @throws VMException if the queue is empty.
+         * @return Return the first element (index 0) of the CustomVector. 
          * @author Ong Zhong Yik
          */
         T front() const;
 
         /**
-         * @brief  Copy Assignment Operator. Assigns the data of one queue to another.
-         * @note   Safely delegates the assignment logic and deep copy mechanism to CustomVector's assignment operator.
-         * @author Ong Zhong Yik
+         * @brief       Copy Assignment Operator. Assigns the data of one queue to another.
+         * @details     Safely delegates the assignment logic and deep copy mechanism to CustomVector's assignment operator.
+         * @note        [Describe about 'const']
+         * @param right [Explain what is this parameter]
+         * @return      [What is return]
+         * @author      Ong Zhong Yik
          */
         CustomQueue& operator=(const CustomQueue<T>& right);
 };
@@ -1074,7 +1118,7 @@ template <typename T>
 void CustomVector<T>::pop_back()
 {
     if (current_size == 0) {
-        throw underflow_error("Vector is empty!");
+        throw VMException("Vector is empty!");
     }
     arr[current_size - 1].~T();
     // Logically remove it by shrinking the size
@@ -1085,7 +1129,7 @@ template <typename T>
 T CustomVector<T>::at(int index) const
 {
     if (index < 0 || index >= current_size) {
-        throw out_of_range("Index out of bounds!");
+        throw VMException("Index out of bounds!");
     }
     return arr[index];
 }
@@ -1094,7 +1138,7 @@ template <typename T>
 const T& CustomVector<T>::operator[](int index) const
 {
     if (index < 0 || index >= current_size) {
-        throw out_of_range("Index out of bounds!");
+        throw VMException("Index out of bounds!");
     }
     return arr[index];
 }
@@ -1103,7 +1147,7 @@ template <typename T>
 void CustomVector<T>::erase(int index)
 {
     if (index < 0 || index >= current_size) {
-        throw out_of_range("Error: Index out of bounds!");
+        throw VMException("Error: Index out of bounds!");
     }
 
     arr[index].~T();
@@ -1118,7 +1162,7 @@ template <typename T>
 T& CustomVector<T>::operator[](int index)
 {
     if (index < 0 || index >= current_size) {
-        throw out_of_range("Index out of bounds!");
+        throw VMException("Index out of bounds!");
     }
     return arr[index];
 }
@@ -1168,7 +1212,7 @@ template <typename T>
 void CustomStack<T>::pop()
 {
     if (isEmpty()) {
-        throw underflow_error("Stack Underflow! Cannot pop.");
+        throw VMException("Stack Underflow! Cannot pop.");
     }
     data.pop_back();
 }
@@ -1177,7 +1221,7 @@ template <typename T>
 T CustomStack<T>::peek() const
 {
     if (isEmpty()) {
-        throw underflow_error("Stack is empty! Cannot peek.");
+        throw VMException("Stack is empty! Cannot peek.");
     }
     return data[data.size() - 1];
 }
@@ -1186,7 +1230,7 @@ template <typename T>
 void CustomQueue<T>::dequeue()
 {
     if (isEmpty()) {
-        throw underflow_error("Queue is empty!");
+        throw VMException("Queue is empty!");
     }
     data.erase(0);
 }
@@ -1195,7 +1239,7 @@ template <typename T>
 T CustomQueue<T>::front() const
 {
     if (isEmpty()) {
-        throw underflow_error("Queue is empty!");
+        throw VMException("Queue is empty!");
     }
     // directly see the front
     return data[0];
