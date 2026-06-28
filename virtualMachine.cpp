@@ -438,184 +438,59 @@ public:
 
 // arithmethic instruction derived class
 class ArithmeticInstruction : public Instruction {
-private:
-    string ar; //"ADD", "SUB", "MUL", "DIV"
-    int destRI; //destination register index
-    int sourceVal; //source register index or immediate
-    bool isImmediate; //true if sourceVal is immediate value, otherwise false
-    int compute(int v1, int v2){ // compute the operation and return the value
-        if (ar == "ADD") return v1 + v2;
-        if (ar == "SUB") return v1 - v2;
-        if (ar == "MUL") return v1 * v2;
-        if (ar == "DIV") {
-            if (v2 == 0) throw VMException("Error: Division by 0."); // throw exception when v1 is divided by 0
-            return v1 / v2;
-        }
-        if (ar != "ADD" && ar != "SUB" && ar != "MUL" && ar != "DIV") throw VMException ("Error: Invalid operation."); // throw exception when operation invalid
-        return 0;
-    }
-public:
-    ArithmeticInstruction(string operation, int dest, int source, bool immediate):ar(operation), destRI(dest), sourceVal(source), isImmediate(immediate){}; // creating an instruction, example: ADD,R1,R2
-    ArithmeticInstruction(string operation, int dest) : destRI(dest){
-        if (operation == "INC"){
-            ar = "ADD";
-            sourceVal = 1;
-            isImmediate = true;
-        } else if (operation == "DEC"){
-            ar = "SUB";
-            sourceVal = 1;
-            isImmediate = true;
-        } else {
-            throw VMException("Error: Invalid operation syntax");
-        }
-    }
-    virtual ~ArithmeticInstruction() override;
-    void execute(CPU& cpu) override {
-
-        DataRegister* destReg = cpu.getRegister(destRI); //fetch the pointer to destination register
-        FlagRegister* flags = cpu.getFlags();  // fetch the pointer to cpu flag register
-        flags->resetAll(); //clear all cpu flags
-
-        int val1 = destReg->getValue(); // read the current int value from destination
-        int val2 = 0; 
-
-        //route the operand lookup based on the flag type
-        if (isImmediate){
-            val2 = sourceVal; //use the raw int directly
-        } else {
-            val2 = cpu.getRegister(sourceVal)->getValue(); //fetch from register index
-        }
-
-        int result = compute(val1, val2); // perform math operation
-
-        flags->flagArithmeticSetter(static_cast<unsigned char>(val1), static_cast<unsigned char>(val2), result);
-
-        destReg->setValue(static_cast<signed char>(result)); // write final result to destination register
-
-        // if (result > 255 || result < -256) flags->setCF(true); //set cf if result out of 9 bit signed boundaries
-        // if (result > 127) flags->setOF(true); //set of if result exceed 8 bit
-        // if (result < -128) flags->setUF(true); //set uf if result below 8 bit
-        // signed char fResult = static_cast<signed char>(result); // force 32 bit result into 8 bit
-        // if (fResult == 0) flags->setZF(true); // set zf if final value = 0
-    }
+    private:
+        string ar; //"ADD", "SUB", "MUL", "DIV"
+        int destRI; //destination register index
+        int sourceVal; //source register index or immediate
+        bool isImmediate; //true if sourceVal is immediate value, otherwise false
+        int compute(int v1, int v2); // compute the operation and return the value
+    
+    public:
+        ArithmeticInstruction(string operation, int dest, int source, bool immediate):ar(operation), destRI(dest), sourceVal(source), isImmediate(immediate){}; // creating an instruction, example: ADD,R1,R2
+        ArithmeticInstruction(string operation, int dest); 
+        virtual ~ArithmeticInstruction() override; // FIXME: Delete the destructor
+        void execute(CPU& cpu) override;
 };
 
 // move instruction derived class
 class MoveInstruction : public Instruction{
-private:
-    int mode; // 1: Immediate, 2: Register-Register, 3: Register-Indirect
-    int destI; //destination index
-    int sourceI; //source index
-    // void executeStore(CPU& cpu, Memory* memory){
-    //     if (mode == 5){ //store addres, register
-    //         memory->write(destI, cpu.getRegister(sourceI)->getValue());
-    //     } else if (mode == 6){ //store [register], register
-    //         int address = cpu.getRegister(destI)->getValue();
-    //         memory->write(address, cpu.getRegister(sourceI)->getValue());
-    //     }
-    // }
-public:
-    MoveInstruction(int moveMode, int dest, int source): mode(moveMode), destI(dest), sourceI(source){} //move instruction constructor, example: 1, R1, R2
-    void execute(CPU& cpu) override{
-        Memory* memory = cpu.getMemory(); // fetch the pointer to memory
-        if (mode == 1){ //MOV register, intermediate
-            cpu.getRegister(destI)->setValue(static_cast<signed char>(sourceI));
-        } else if (mode == 2){ // MOV register, register
-            cpu.getRegister(destI)->setValue(cpu.getRegister(sourceI)->getValue());
-        } else if (mode == 3 || mode == 4){ // MOV register, [register] or LOAD register, [address]
-            int address;
-            if (mode == 3){
-                address = cpu.getRegister(sourceI)->getValue(); //get address stored inside the register
-            // } else {
-            //     address = sourceI; //sourceI is the literal address
-            }
-            int dataFromMemory = memory->read(address); //fetch data from that memory address
-            cpu.getRegister(destI)->setValue(dataFromMemory); // store it in destination register
-        // } else {
-        //     executeStore(cpu, memory);
-        }
-    }
+    private:
+        int mode; // 1: Immediate, 2: Register-Register, 3: Register-Indirect
+        int destI; //destination index
+        int sourceI; //source index
+    
+    public:
+        MoveInstruction(int moveMode, int dest, int source): mode(moveMode), destI(dest), sourceI(source){} //move instruction constructor, example: 1, R1, R2
+        void execute(CPU& cpu) override;
 };
 
 // input or display instruction derived class
 class IOInstruction : public Instruction {
-private:
-    string op; //"INPUT" and "DISPLAY"
-    int regI; //register array index
-public:
-    IOInstruction(string operation, int idx) : op(operation), regI(idx) {} // ioi instruction constructor
-    void execute(CPU& cpu) override {
-
-        DataRegister* reg = cpu.getRegister(regI); //fetch the pointer to register
-        FlagRegister* flags = cpu.getFlags(); // fetch the pointer to cpu flag register
-
-        if (op == "INPUT"){ //check instruction is input command
-            flags->resetAll(); //clear all cpu flags
-
-            cout << "?" << endl;
-            int rawInput; // to store user value
-            cin >> rawInput; //read user value
-
-            reg->setValue(static_cast<signed char>(rawInput)); //convert 32-bit integer to 8-bit signed byte
-            flags->flagIOSetter(rawInput);
-
-            // if (rawInput > 127) flags->setOF(true); //set of if value > 127
-            // if (rawInput < -128) flags->setUF(true); // set uf if value < 128
-            // if (rawInput == 0) flags->setZF(true); // set zf if value = 0
-        } else if (op == "DISPLAY") { //check instruction is display command
-            cout << static_cast<int>(reg->getValue()) << endl;
-        } else if (op != "INPUT" && op != "DISPLAY") { //if not, throw an exception
-            throw VMException("Error: Invalid operation.");
-        }
-    }
+    private:
+        string op; //"INPUT" and "DISPLAY"
+        int regI; //register array index
+    public:
+        IOInstruction(string operation, int idx) : op(operation), regI(idx) {} // ioi instruction constructor
+        void execute(CPU& cpu) override;
 };
 
 // shift and rotate instruction derived class
 class ShiftInstruction : public Instruction {
-private:
-    string op; //"SHL" "SHR" "ROR" "ROL"
-    int regI; //register array index
-    int count; //raw number of bit positions to shift/rotate
-public:
-    ShiftInstruction(string operation, int idx, int shiftCount): op(operation), regI(idx), count(shiftCount) {} //shift and rotate instruction constructor
-    void execute(CPU& cpu) override {
-        if (count < 0) return; //immediate execution halt if a negative shift value is provided
-        DataRegister* reg = cpu.getRegister(regI); //fetch pointer to register
-        FlagRegister* flags = cpu.getFlags(); //fetch pointer to cpu flags
-        flags->resetAll(); //clear all flags
-        unsigned char val = static_cast<unsigned char>(reg->getValue()); //cast the register's signed value to an unsigned byte
-        int dCount = count % 8; // calculate the shift index count within the boundaries of an 8-bit block
-        if (count >= 8 && (op == "SHL" || op == "SHR")) val = 0; //shifting left or right by 8 or more positions completely zeroes out the byte
-        else if (dCount > 0) {
-            if (op == "SHL"){ //shift left
-                val = val << dCount; // push bit to the left
-            }else if (op == "SHR"){ //shift right
-                val = val >> dCount; //push bit to the right
-            }else if (op == "ROL") { //rotate left
-                val = (val << dCount) | (val >> (8 - dCount));
-            }else if (op == "ROR"){ //rotate right
-                val = (val >> dCount) | (val << (8 - dCount));
-            }
-        }
-        // signed char fResult = static_cast<signed char>(val); // convert the unsigned byte container back to a signed char format
-        reg->setValue(static_cast<signed char>(val));
-        // if (fResult == 0) flags->setZF(true); //set zf to true if the final register value = zero
-        flags->flagLogicalSetter(static_cast<unsigned char>(val));
-    }
+    private:
+        string op; //"SHL" "SHR" "ROR" "ROL"
+        int regI; //register array index
+        int count; //raw number of bit positions to shift/rotate
+    public:
+        ShiftInstruction(string operation, int idx, int shiftCount): op(operation), regI(idx), count(shiftCount) {} //shift and rotate instruction constructor
+        void execute(CPU& cpu) override;
 };
 
 class ResetFlagsInstruction : public Instruction {
-private:
-    string targetFlag; //cf, of, uf, zf
-public:
-    ResetFlagsInstruction(string flagName) : targetFlag(flagName){}
-    void execute(CPU& cpu) override{
-        FlagRegister* flags = cpu.getFlags();
-        if (targetFlag == "CF") flags->setCF(false);
-        else if (targetFlag == "ZF") flags->setZF(false);
-        else if (targetFlag == "OF") flags->setOF(false);
-        else if (targetFlag == "UF") flags->setUF(false);
-    }
+    private:
+        string targetFlag; //cf, of, uf, zf
+    public:
+        ResetFlagsInstruction(string flagName) : targetFlag(flagName){}
+        void execute(CPU& cpu) override;
 };
 
 /**
@@ -1241,6 +1116,128 @@ void FlagRegister::flagIOSetter(int input)
 void FlagRegister::flagLogicalSetter(unsigned char result)
 {
     setZF(checkZF(static_cast<signed char>(result)));
+}
+
+int ArithmeticInstruction::compute(int v1, int v2){
+    if (ar == "ADD") return v1 + v2;
+    if (ar == "SUB") return v1 - v2;
+    if (ar == "MUL") return v1 * v2;
+    if (ar == "DIV") {
+        if (v2 == 0) throw VMException("Error: Division by 0."); // throw exception when v1 is divided by 0
+        return v1 / v2;
+    }
+    if (ar != "ADD" && ar != "SUB" && ar != "MUL" && ar != "DIV") throw VMException ("Error: Invalid operation."); // throw exception when operation invalid
+    return 0;
+}
+
+ArithmeticInstruction::ArithmeticInstruction(string operation, int dest): destRI(dest)
+{
+    if (operation == "INC"){
+        ar = "ADD";
+        sourceVal = 1;
+        isImmediate = true;
+    } else if (operation == "DEC"){
+        ar = "SUB";
+        sourceVal = 1;
+        isImmediate = true;
+    } else {
+        throw VMException("Error: Invalid operation syntax");
+    }
+}
+
+void ArithmeticInstruction::execute(CPU& cpu)
+{
+    DataRegister* destReg = cpu.getRegister(destRI); //fetch the pointer to destination register
+    FlagRegister* flags = cpu.getFlags();  // fetch the pointer to cpu flag register
+    flags->resetAll(); //clear all cpu flags
+
+    int val1 = destReg->getValue(); // read the current int value from destination
+    int val2 = 0; 
+
+    //route the operand lookup based on the flag type
+    if (isImmediate){
+        val2 = sourceVal; //use the raw int directly
+    } else {
+        val2 = cpu.getRegister(sourceVal)->getValue(); //fetch from register index
+    }
+
+    int result = compute(val1, val2); // perform math operation
+
+    flags->flagArithmeticSetter(static_cast<unsigned char>(val1), static_cast<unsigned char>(val2), result);
+
+    destReg->setValue(static_cast<signed char>(result)); // write final result to destination register
+}
+
+void MoveInstruction::execute(CPU& cpu)
+{
+    Memory* memory = cpu.getMemory(); // fetch the pointer to memory
+    if (mode == 1){ //MOV register, intermediate
+        cpu.getRegister(destI)->setValue(static_cast<signed char>(sourceI));
+    } else if (mode == 2){ // MOV register, register
+        cpu.getRegister(destI)->setValue(cpu.getRegister(sourceI)->getValue());
+    } else if (mode == 3 || mode == 4){ // MOV register, [register] or LOAD register, [address] 
+        int address; // FIXME: mode == 4 can be deleted cuz LOAD qianxian can just set it as mode 3 too. Modify a bit for this block
+        if (mode == 3){
+            address = cpu.getRegister(sourceI)->getValue(); //get address stored inside the register
+        }
+        int dataFromMemory = memory->read(address); //fetch data from that memory address
+        cpu.getRegister(destI)->setValue(dataFromMemory); // store it in destination register
+    }
+}
+
+void IOInstruction::execute(CPU& cpu)
+{
+    DataRegister* reg = cpu.getRegister(regI); //fetch the pointer to register
+    FlagRegister* flags = cpu.getFlags(); // fetch the pointer to cpu flag register
+
+    if (op == "INPUT"){ //check instruction is input command
+        flags->resetAll(); //clear all cpu flags
+
+        cout << "?" << endl;
+        int rawInput; // to store user value
+        cin >> rawInput; //read user value
+
+        reg->setValue(static_cast<signed char>(rawInput)); //convert 32-bit integer to 8-bit signed byte
+        flags->flagIOSetter(rawInput);
+
+    } else if (op == "DISPLAY") { //check instruction is display command
+        cout << static_cast<int>(reg->getValue()) << endl;
+    } else if (op != "INPUT" && op != "DISPLAY") { //if not, throw an exception
+        throw VMException("Error: Invalid operation.");
+    }
+}
+
+void ShiftInstruction::execute(CPU& cpu)
+{
+    if (count < 0) return; //immediate execution halt if a negative shift value is provided
+    DataRegister* reg = cpu.getRegister(regI); //fetch pointer to register
+    FlagRegister* flags = cpu.getFlags(); //fetch pointer to cpu flags
+    flags->resetAll(); //clear all flags
+    unsigned char val = static_cast<unsigned char>(reg->getValue()); //cast the register's signed value to an unsigned byte
+    int dCount = count % 8; // calculate the shift index count within the boundaries of an 8-bit block
+    if (count >= 8 && (op == "SHL" || op == "SHR")) val = 0; //shifting left or right by 8 or more positions completely zeroes out the byte
+    else if (dCount > 0) {
+        if (op == "SHL"){ //shift left
+            val = val << dCount; // push bit to the left
+        }else if (op == "SHR"){ //shift right
+            val = val >> dCount; //push bit to the right
+        }else if (op == "ROL") { //rotate left
+            val = (val << dCount) | (val >> (8 - dCount));
+        }else if (op == "ROR"){ //rotate right
+            val = (val >> dCount) | (val << (8 - dCount));
+        }
+    }
+    reg->setValue(static_cast<signed char>(val));
+    flags->flagLogicalSetter(static_cast<unsigned char>(val));
+}
+
+void ResetFlagsInstruction::execute(CPU& cpu)
+{
+    FlagRegister* flags = cpu.getFlags();
+    if (targetFlag == "CF") flags->setCF(false);
+    else if (targetFlag == "ZF") flags->setZF(false);
+    else if (targetFlag == "OF") flags->setOF(false);
+    else if (targetFlag == "UF") flags->setUF(false);
 }
 
 LoadStoreInstruction::LoadStoreInstruction(int m, int dRI, int memAdd)
