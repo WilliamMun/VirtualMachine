@@ -1541,18 +1541,18 @@ void Runner::executeProgram(bool saveToFile, const string& outputFilename)
             // tell the specific instruction to execute itself on our virtual machine
             program.at(i) ->execute(virtualMachine); // move the program counter forward by 1
             virtualMachine.incrementPC(); // move the program counter forward by 1
-
-            // Always display execution on screen
-            dumpStateToScreen();
-
-            dumpStateToFile(outFile);
         }
+        dumpStateToScreen();
+        dumpStateToFile(outFile);
     }
     // if an error was thrown inside execute(), catch it here and print a safe error message
     catch(const VMException& e)
     {
         cout << "\n Error: " << e.getErrorMessage() << "\n Stopping";
         outFile << "\n Error: " << e.getErrorMessage() << "\n Stopping\n";
+
+        dumpStateToScreen(); 
+        dumpStateToFile(outFile);
     }
 
     outFile.close();
