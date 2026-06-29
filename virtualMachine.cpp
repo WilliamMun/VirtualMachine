@@ -1344,22 +1344,6 @@ Instruction* Runner::handleMove(int reg, string value) {
         return new MoveInstruction(1, reg, stoi(value));
     }
 
-void Runner::decodeAndStore(string currentLine){
-    stringstream lineStream(currentLine); // turn the string into a stream to read word by word
-        string first;
-        lineStream >> first; // read the first word (eg. ADD)
-
-        // try to translate the instruction by passing it into our 3 parser functions, if the first cant handle it, then returns nullptr, so we try MemAndIO
-        Instruction* inst = MathAndLogic(first, lineStream);
-        if (!inst) inst = parseIOAndStack(first, lineStream);
-        if (!inst) inst = parseLoadStore(first, lineStream);
-        if (!inst) inst = ShiftAndReset(first, lineStream);
-        
-        // if one of the parsers successfully created an instruction, save it
-        if (inst) program.push_back(inst); 
-        else cout << "Warning: Unrecognized command -> " << first << "\n";
-}
-
 Instruction* Runner::MathAndLogic(const string& first, stringstream& rest)
 {
     string dest,value;
@@ -1495,6 +1479,22 @@ Runner::~Runner()
 {
     for (int i = 0; i < program.size(); i++)
         {delete program.at(i);}
+}
+
+void Runner::decodeAndStore(string currentLine){
+    stringstream lineStream(currentLine); // turn the string into a stream to read word by word
+        string first;
+        lineStream >> first; // read the first word (eg. ADD)
+
+        // try to translate the instruction by passing it into our 3 parser functions, if the first cant handle it, then returns nullptr, so we try MemAndIO
+        Instruction* inst = MathAndLogic(first, lineStream);
+        if (!inst) inst = parseIOAndStack(first, lineStream);
+        if (!inst) inst = parseLoadStore(first, lineStream);
+        if (!inst) inst = ShiftAndReset(first, lineStream);
+        
+        // if one of the parsers successfully created an instruction, save it
+        if (inst) program.push_back(inst); 
+        else cout << "Warning: Unrecognized command -> " << first << "\n";
 }
 
 void Runner::loadProgram(const string& filename)
