@@ -6,11 +6,41 @@
 using namespace std;
 
 class VMException {
-    private:
-        const char* errorMessage;
+    protected:
+        string errorMessage;
     public:
-        VMException(const char* msg) { errorMessage = msg; }
-        const char* getErrorMessage() const { return errorMessage; }
+        VMException(const string& msg): errorMessage(msg) {}
+        virtual ~VMException() {}
+        virtual const string& getErrorMessage() const { return errorMessage; }
+};
+
+class FileException : public VMException {
+    private:
+        string filename;
+    public: 
+        FileException(const string& fn, const string& msg) : VMException("FILE ERROR- " + msg), filename(fn) {}
+        const string& getFilename() const { return filename; }
+};
+
+class HardwareException : public VMException {
+    public:
+        HardwareException(const string& msg) : VMException("HARDWARE ERROR- " + msg) {}
+};
+
+class SyntaxException : public VMException {
+    public:
+        SyntaxException(const string& msg) : VMException("SYNTAX ERROR- " + msg) {}
+};
+
+class LogicException : public VMException {
+    public:
+        LogicException(const string& msg) : VMException("LOGIC ERROR- " + msg) {}
+};
+
+class RunTimeCrashException : public VMException {
+    public:
+        RunTimeCrashException(const string& errMsg, int PC, const string& cmd): VMException("CRASH AT PC[" + to_string(PC) + "]\n" + "Command: " + cmd + "\n" + "Reason: " + errMsg) {}
+        RunTimeCrashException(const string& errMsg): VMException("COMPILATION ERROR. \nProgram stop compiling. \nReason: " + errMsg) {}
 };
 
 /**
@@ -610,7 +640,7 @@ class CPU {
     public:
         CPU() : PC(0), SI(0) {} // sets the program counter and stack index to 0 when cpu is first created
         // Getters to allow instructions to manipulate CPU state
-        DataRegister* getRegister(int index) { return &R[index]; } // returns pointer to a specific data register, pointer gives the runner the memory address of the pointer
+        DataRegister* getRegister(int index); // returns pointer to a specific data register, pointer gives the runner the memory address of the pointer
         FlagRegister* getFlags() { return &flags; } // returns pointer to flag registers so the runner can check or update them
         Memory* getMemory() { return &memory; } // returns a pointer to the main memory so the runner can load or store data
         CustomStack<signed char>& getSystemStack() {return systemStack;}
@@ -630,6 +660,7 @@ public:
     virtual ~Instruction() {}
     // Virtual polymorphism
     virtual void execute(CPU& cpu) = 0;
+    virtual const char* getCommand() const = 0;
 };
 
 // arithmethic instruction derived class
@@ -645,6 +676,7 @@ class ArithmeticInstruction : public Instruction {
         ArithmeticInstruction(string operation, int dest, int source, bool immediate):ar(operation), destRI(dest), sourceVal(source), isImmediate(immediate){}; // creating an instruction, example: ADD,R1,R2
         ArithmeticInstruction(string operation, int dest); 
         void execute(CPU& cpu) override;
+        const char* getCommand() const override { return ar.c_str(); }
 };
 
 // move instruction derived class
@@ -657,6 +689,7 @@ class MoveInstruction : public Instruction{
     public:
         MoveInstruction(int moveMode, int dest, int source): mode(moveMode), destI(dest), sourceI(source){} //move instruction constructor, example: 1, R1, R2
         void execute(CPU& cpu) override;
+        const char* getCommand() const override { return "MOV"; }
 };
 
 // input or display instruction derived class
@@ -667,6 +700,7 @@ class IOInstruction : public Instruction {
     public:
         IOInstruction(string operation, int idx) : op(operation), regI(idx) {} // ioi instruction constructor
         void execute(CPU& cpu) override;
+        const char* getCommand() const override { return op.c_str(); }
 };
 
 // shift and rotate instruction derived class
@@ -678,6 +712,7 @@ class ShiftInstruction : public Instruction {
     public:
         ShiftInstruction(string operation, int idx, int shiftCount): op(operation), regI(idx), count(shiftCount) {} //shift and rotate instruction constructor
         void execute(CPU& cpu) override;
+        const char* getCommand() const override { return op.c_str(); }
 };
 
 class ResetFlagsInstruction : public Instruction {
@@ -686,6 +721,7 @@ class ResetFlagsInstruction : public Instruction {
     public:
         ResetFlagsInstruction(string flagName) : targetFlag(flagName){}
         void execute(CPU& cpu) override;
+        const char* getCommand() const override { return "RESET"; }
 };
 
 /**
@@ -749,6 +785,7 @@ class LoadStoreInstruction : public Instruction {
          */
         void execute(CPU& cpu) override;
 
+        const char* getCommand() const override { return (mode == 1) ? "LOAD" : "STORE"; }
 };
 
 /**
@@ -788,6 +825,8 @@ class StackInstruction : public Instruction {
          * @author    Mun William
          */
         void execute(CPU& cpu) override;
+
+        const char* getCommand() const override { return operation.c_str(); }
 };
 
 // Loads programs, decodes instructions, delegates execution to CPU
@@ -856,7 +895,7 @@ template <typename T>
 void CustomVector<T>::pop_back()
 {
     if (current_size == 0) {
-        throw VMException("Vector is empty!");
+        throw LogicException("Trying pop_back on empty CustomVector."); ///< @note Modified by Mun William: Exception Handling
     }
     arr[current_size - 1].~T();
     // Logically remove it by shrinking the size
@@ -867,7 +906,7 @@ template <typename T>
 T CustomVector<T>::at(int index) const
 {
     if (index < 0 || index >= current_size) {
-        throw VMException("Index out of bounds!");
+        throw LogicException("Index out of bounds in CustomVector."); ///< @note Modified by Mun William: Exception Handling
     }
     return arr[index];
 }
@@ -876,7 +915,7 @@ template <typename T>
 const T& CustomVector<T>::operator[](int index) const
 {
     if (index < 0 || index >= current_size) {
-        throw VMException("Index out of bounds!");
+        throw LogicException("Index out of bounds in CustomVector."); ///< @note Modified by Mun William: Exception Handling
     }
     return arr[index];
 }
@@ -885,7 +924,7 @@ template <typename T>
 void CustomVector<T>::erase(int index)
 {
     if (index < 0 || index >= current_size) {
-        throw VMException("Error: Index out of bounds!");
+        throw LogicException("Index out of bounds in CustomVector."); ///< @note Modified by Mun William: Exception Handling
     }
 
     arr[index].~T();
@@ -900,7 +939,7 @@ template <typename T>
 T& CustomVector<T>::operator[](int index)
 {
     if (index < 0 || index >= current_size) {
-        throw VMException("Index out of bounds!");
+        throw LogicException("Index out of bounds in CustomVector."); ///< @note Modified by Mun William: Exception Handling
     }
     return arr[index];
 }
@@ -950,7 +989,7 @@ template <typename T>
 void CustomStack<T>::pop()
 {
     if (isEmpty()) {
-        throw VMException("Stack Underflow! Cannot pop.");
+        throw LogicException("Stack underflow. Trying to pop empty CustomStack."); ///< @note Modified by Mun William: Exception Handling
     }
     data.pop_back();
 }
@@ -959,7 +998,7 @@ template <typename T>
 T CustomStack<T>::peek() const
 {
     if (isEmpty()) {
-        throw VMException("Stack is empty! Cannot peek.");
+        throw LogicException("Stack underflow. Trying to peek empty CustomStack."); ///< @note Modified by Mun William: Exception Handling
     }
     return data[data.size() - 1];
 }
@@ -968,7 +1007,7 @@ template <typename T>
 void CustomQueue<T>::dequeue()
 {
     if (isEmpty()) {
-        throw VMException("Queue is empty!");
+        throw LogicException("Queue underflow. Trying to dequeue empty CustomQueue."); ///< @note Modified by Mun William: Exception Handling
     }
     data.erase(0);
 }
@@ -977,7 +1016,7 @@ template <typename T>
 T CustomQueue<T>::front() const
 {
     if (isEmpty()) {
-        throw VMException("Queue is empty!");
+        throw LogicException("Queue underflow. Trying to front empty CustomQueue."); ///< @note Modified by Mun William: Exception Handling
     }
     // directly see the front
     return data[0];
@@ -1040,18 +1079,20 @@ Memory& Memory::operator=(const Memory& other)
 
 signed char Memory::read(int address) const
 {
-    if (address >= 0 && address < 64)
-        return data[address];
-    else
-        throw VMException("Data cannot be displayed due to address out of bound.");
+    if(address < 0 || address > 63){
+        throw HardwareException("Address " + to_string(address) + " is invalid to read.");
+    } else {
+        return data[address];  
+    }
 }
 
 void Memory::write(int address, signed char value)
 {
-    if (address >= 0 && address < 64)
-        this->data[address] = value;
-    else
-        throw VMException("Data cannot be written due to address out of bound.");
+    if(address < 0 || address > 63){
+        throw HardwareException("Address " + to_string(address) + " is invalid to read.");
+    } else {
+        data[address] = value;  
+    }
 }
 
 void Memory::displayMemory()
@@ -1069,6 +1110,15 @@ void Memory::displayMemory()
     cout << endl;
 }
 
+DataRegister *CPU::getRegister(int index)
+{   
+    // Checks register index at here to prevent out of bound register index accessed by user. Otherwise it throws error if index is out of bound.
+    if(index < 0 || index > 7) ///< @note Added by Mun William: Exception Handling
+        throw HardwareException("Register index " + to_string(index) + " is not valid."); ///< @note Added by Mun William: Exception Handling
+
+    return &R[index]; 
+} 
+
 void CPU::pushToStack(signed char value)
 {
     systemStack.push(value); // puts the data into the customstack
@@ -1077,10 +1127,14 @@ void CPU::pushToStack(signed char value)
 
 signed char CPU::popFromStack()
 {
-    signed char peek = systemStack.peek();
-    systemStack.pop();
-    decrementSI();
-    return peek;
+    try { ///< @note Added by Mun William: Exception Handling
+        signed char peek = systemStack.peek();
+        systemStack.pop();
+        decrementSI();
+        return peek;
+    } catch (LogicException& e) { ///< @note Added by Mun William: Exception Handling
+        throw HardwareException("Stack underflow. Trying to pop empty stack."); ///< @note Added by Mun William: Exception Handling
+    }
 }
 
 int ArithmeticInstruction::compute(int v1, int v2){
@@ -1088,7 +1142,7 @@ int ArithmeticInstruction::compute(int v1, int v2){
     if (ar == "SUB") return v1 - v2;
     if (ar == "MUL") return v1 * v2;
     if (ar == "DIV") {
-        if (v2 == 0) throw VMException("Error: Division by 0."); // throw exception when v1 is divided by 0
+        if (v2 == 0) throw LogicException("Division by 0."); // throw exception when v1 is divided by 0 ///< @note Modified by Mun William: Exception Handling
         return v1 / v2;
     }
     if (ar != "ADD" && ar != "SUB" && ar != "MUL" && ar != "DIV") throw VMException ("Error: Invalid operation."); // throw exception when operation invalid
@@ -1106,7 +1160,7 @@ ArithmeticInstruction::ArithmeticInstruction(string operation, int dest): destRI
         sourceVal = 1;
         isImmediate = true;
     } else {
-        throw VMException("Error: Invalid operation syntax");
+        throw SyntaxException("Invalid arithmetic operation syntax"); ///< @note Modified by Mun William: Exception Handling
     }
 }
 
@@ -1166,9 +1220,9 @@ void IOInstruction::execute(CPU& cpu)
         flags->flagIOSetter(rawInput);
 
     } else if (op == "DISPLAY") { //check instruction is display command
-        cout << static_cast<int>(reg->getValue()) << endl;
+        cout << "R" << regI << "=" << static_cast<int>(reg->getValue()) << endl;
     } else if (op != "INPUT" && op != "DISPLAY") { //if not, throw an exception
-        throw VMException("Error: Invalid operation.");
+        throw SyntaxException("Invalid IO operation."); ///< @note Modified by Mun William: Exception Handling
     }
 }
 
@@ -1208,54 +1262,33 @@ void ResetFlagsInstruction::execute(CPU& cpu)
 LoadStoreInstruction::LoadStoreInstruction(int m, int dRI, signed char memAdd)
 {
     addressRegisterIndex = -1;
+    dataRegisterIndex = dRI;
+    memoryAddress = static_cast<int>(memAdd); // Address out of bound will be handled by Memory class, so here we don't do checking first.
 
     if(m >= 1 && m <= 3){
         mode = m;
     } else {
-        throw VMException("Invalid LOAD or STORE instruction format.");
-    }
-
-    int memAddCast = static_cast<int>(memAdd);
-    if(memAddCast >= 0 && memAddCast < 64){
-        memoryAddress = memAddCast;
-    } else {
-        throw VMException("Memory address out of bound. Memory address only ranged from 0 to 63.");
-    }
-
-    if(dRI >= 0 && dRI < 8){
-        dataRegisterIndex = dRI;
-    } else {
-        throw VMException("Register index out of bound. Data register only ranged from R0 to R7.");
+        throw SyntaxException("Invalid LOAD or STORE instruction format.");
     }
 }
 
 LoadStoreInstruction::LoadStoreInstruction(int m, int dRI, int aRI)
 {
     memoryAddress = -1;
+    dataRegisterIndex = dRI;
+    addressRegisterIndex = aRI;
 
     if(m >= 1 && m <= 3){
         mode = m;
     } else {
-        throw VMException("Invalid LOAD or STORE instruction format.");
-    }
-
-    if(dRI >= 0 && dRI < 8){
-        dataRegisterIndex = dRI;
-    } else {
-        throw VMException("Register index out of bound. Data register only ranged from R0 to R7.");
-    }
-
-    if(aRI >= 0 && aRI < 8){
-        addressRegisterIndex = aRI;
-    } else {
-        throw VMException("Register index out of bound. Data register only ranged from R0 to R7.");
+        throw VMException("Invalid load or store operation.");
     }
 }
 
 void LoadStoreInstruction::execute(CPU &cpu)
 {
     DataRegister* datReg = cpu.getRegister(dataRegisterIndex);
-    DataRegister* addReg = cpu.getRegister(addressRegisterIndex);
+
     Memory* mem = cpu.getMemory();
 
     if(mode == 1){ // LOAD <Register>, [<Address>]
@@ -1263,26 +1296,22 @@ void LoadStoreInstruction::execute(CPU &cpu)
     } else if (mode == 2){ // STORE <Register>, <Address>
         mem->write(memoryAddress, datReg->getValue());
     } else if (mode == 3){ // STORE <Register>, [<Register>]
+        DataRegister* addReg = cpu.getRegister(addressRegisterIndex);
         mem->write(static_cast<int>(addReg->getValue()), datReg->getValue());
     } else {
-        throw VMException("Invalid LOAD or STORE instruction format."); // Prevent unexpected value passing into mode
+        throw SyntaxException("Invalid load or store operation."); // Prevent unexpected value passing into mode
     }
 }
 
 StackInstruction::StackInstruction(string op, int dRI, CustomStack<signed char> &sysSk): systemStack(sysSk)
 {
     systemStack = sysSk;
+    dataRegisterIndex = dRI;
 
     if(op == "PUSH" || op == "POP"){
         operation = op;
     } else {
-        throw VMException("Invalid stack instruction format.");
-    }
-
-    if(dRI >= 0 && dRI < 8){
-        dataRegisterIndex = dRI;
-    } else {
-        throw VMException("Register index out of bound. Data register only ranged from R0 to R7.");
+        throw SyntaxException("Invalid stack operation.");
     }
 }
 
@@ -1295,7 +1324,7 @@ void StackInstruction::execute(CPU& cpu)
     } else if (operation == "POP") {
         datReg->setValue(cpu.popFromStack());
     } else {
-        throw VMException("Invalid PUSH or POP operation."); // Prevent unexpected value passing into operation
+        throw SyntaxException("Invalid stack operation."); // Prevent unexpected value passing into operation
     }
 }
 
@@ -1494,7 +1523,7 @@ void Runner::decodeAndStore(string currentLine){
         
         // if one of the parsers successfully created an instruction, save it
         if (inst) program.push_back(inst); 
-        else cout << "Warning: Unrecognized command -> " << first << "\n";
+        else throw SyntaxException("Invalid syntax found: " + first);
 }
 
 void Runner::loadProgram(const string& filename)
@@ -1504,8 +1533,7 @@ void Runner::loadProgram(const string& filename)
     // Store in CustomVector
     ifstream file(filename);
     if(!file.is_open()){
-        cout << "Error: Could not open file" << filename << "\n";
-        exit(1); // crash if the file does not exist
+        throw FileException("File is not found or cannot be opened.", filename); 
     }
 
     //store into queue
@@ -1521,10 +1549,14 @@ void Runner::loadProgram(const string& filename)
     file.close(); // close the file when done
 
     // take lines out the queue one by one, translate them and put them into a vector
-    while(!lineQueue.isEmpty())
-    {
-        decodeAndStore(lineQueue.front());
-        lineQueue.dequeue();
+    try {
+        while(!lineQueue.isEmpty())
+        {
+            decodeAndStore(lineQueue.front());
+            lineQueue.dequeue();
+        }
+    } catch (VMException& e){
+        throw RunTimeCrashException(e.getErrorMessage());
     }
 }
 
@@ -1534,24 +1566,26 @@ void Runner::executeProgram(bool saveToFile, const string& outputFilename)
     outFile.open(outputFilename);
 
     // try-catch blocks protect the program from crashing
-    try {
-        // loop through our vector of instructions from top to bottom
-        for (int i = 0; i < program.size(); i++)
-        {
+    // try {
+    // loop through our vector of instructions from top to bottom
+    for (int i = 0; i < program.size(); i++)
+    {
+        try{
             // tell the specific instruction to execute itself on our virtual machine
             program.at(i) ->execute(virtualMachine); // move the program counter forward by 1
+            //dumpStateToScreen(); // @debug
             virtualMachine.incrementPC(); // move the program counter forward by 1
+        } catch (VMException& e){
+            if(outFile.is_open()) {
+                outFile << "\n Stopping...";
+                outFile << "\n Command Caused Error: " << program.at(i)->getCommand();
+                outFile << "\n Reason: " << e.getErrorMessage() << endl;
+            }
+            throw RunTimeCrashException(e.getErrorMessage(), virtualMachine.getPC()+1, program.at(i)->getCommand());
         }
-        dumpStateToScreen();
-        dumpStateToFile(outFile);
     }
-    // if an error was thrown inside execute(), catch it here and print a safe error message
-    catch(const VMException& e)
-    {
-        cout << "\n Error: " << e.getErrorMessage() << "\n Stopping";
-        outFile << "\n Error: " << e.getErrorMessage() << "\n Stopping\n";
-    }
-
+    dumpStateToScreen();
+    dumpStateToFile(outFile);
     outFile.close();
 }
 
@@ -1580,15 +1614,8 @@ void Runner::dumpStateToFile(ofstream& outFile)
     outFile << "#End#\n";
 }
 
-// ==========================================
-// ENTRY POINT
-// ==========================================
 int main() {
     Runner interpreter;
-    // Load the program from file / Ask user to enter file name to be compiled
-    // Get file and compile the assembly code
-    // Print the VM's state after executed each line of assembly code
-
     string filename;
 
     try{
@@ -1596,13 +1623,19 @@ int main() {
         cin >> filename;
         
         if(filename.substr(filename.length() - 4) != ".asm")
-            throw VMException("Invalid input file type.");
+            throw FileException("Invalid input file type- " + filename + ".\nMust be a .asm file.", filename);
     } catch (VMException& e){
-        cout << e.getErrorMessage() << endl;
-    } // @todo: throw error and it will cause program crash directly.
+        cerr << e.getErrorMessage() << endl;
+        return 1;
+    } 
 
-    interpreter.loadProgram(filename);
-    interpreter.executeProgram();
+    try{
+        interpreter.loadProgram(filename);
+        interpreter.executeProgram();
+    } catch (VMException& e){
+        cerr << e.getErrorMessage() << endl;
+        return 1;
+    }
 
     cout << "\n Program finished! Check output.txt for the full record \n";
     return 0;
