@@ -1550,9 +1550,6 @@ void Runner::executeProgram(bool saveToFile, const string& outputFilename)
     {
         cout << "\n Error: " << e.getErrorMessage() << "\n Stopping";
         outFile << "\n Error: " << e.getErrorMessage() << "\n Stopping\n";
-
-        dumpStateToScreen(); 
-        dumpStateToFile(outFile);
     }
 
     outFile.close();
