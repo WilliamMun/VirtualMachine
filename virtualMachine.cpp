@@ -800,11 +800,15 @@ class Runner {
         bool isBlankLine(string dummy); // helper function, checks if a line is empty or just spaces
         string format4(int num); // Helper function to pad numbers with leading zeroes (eg. 5 into 0005)
         int numberReg(string dummy); // helper function, extracts the number from a register (eg. R1 becomes 1)
+        Instruction* handleMove(int reg, string value);
+
         // acts as translator, the read text from file and figure whih instruction object to create
         Instruction* MathAndLogic(const string& first, stringstream& rest);
-        Instruction* MemAndIO(const string& first, stringstream& rest);
+        Instruction* parseIOAndStack(const string& first, stringstream& rest);
+        Instruction* parseLoadStore(const string& first, stringstream& rest);
         Instruction* ShiftAndReset(const string& first, stringstream& rest);
         string buildCpuStateString(); // build the shared cpu state to prevent repetition
+        void decodeAndStore(string currentline); 
 
     public:
         Runner() {}  // default constructor
@@ -1326,6 +1330,20 @@ int Runner::numberReg(string dummy)
     return 0;
 }
 
+Instruction* Runner::handleMove(int reg, string value) {
+        if (value.front() == '[') {
+            // Register indirect [R1], we are moving based on a memory address stored in a register
+            string inner = value.substr(1, value.length() - 2); // strip the brackets to get R1
+            return new MoveInstruction(3, reg, numberReg(inner));
+        }
+        else if (value[0] == 'R' || value[0] == 'r'){
+            // Register to register (eg. MOV R1, R2)
+            return new MoveInstruction(2, reg, numberReg(value));
+        }
+        // immediate to register (eg. MOV R1, 5)
+        return new MoveInstruction(1, reg, stoi(value));
+    }
+
 Instruction* Runner::MathAndLogic(const string& first, stringstream& rest)
 {
     string dest,value;
@@ -1351,31 +1369,19 @@ Instruction* Runner::MathAndLogic(const string& first, stringstream& rest)
 
     // handle move instructions which have diff modes
     if (first == "MOV") {
-        if (value.front() == '[') {
-            // Register indirect [R1], we are moving based on a memory address stored in a register
-            string inner = value.substr(1, value.length() - 2); // strip the brackets to get R1
-            return new MoveInstruction(3, reg, numberReg(inner));
-        }
-        else if (value[0] == 'R' || value[0] == 'r'){
-            // Register to register (eg. MOV R1, R2)
-            return new MoveInstruction(2, reg, numberReg(value));
-        }
-        // immediate to register (eg. MOV R1, 5)
-        return new MoveInstruction(1, reg, stoi(value));
-    }
+        return handleMove(reg,value); }
+        
     // if wasnt a MOV, it must be basic math operating
     // check if the second value is a register (starting with R or r)
     if (value[0] == 'R' || value[0] == 'r'){
         // if its a register (eg. add r1, r2)
-        return new ArithmeticInstruction(first, reg, numberReg(value), false);// means not immediate)
-    }
+        return new ArithmeticInstruction(first, reg, numberReg(value), false); } // means not immediate)
     // it is an immediate number (eg. add r1, 6)
     else {
-        return new ArithmeticInstruction(first, reg, stoi(value), true);} // means its immediate
-        // to be changed after zr implement
+        return new ArithmeticInstruction(first, reg, stoi(value), true); } // means its immediate
 }
 
-Instruction* Runner::MemAndIO(const string& first, stringstream& rest)
+Instruction* Runner::parseIOAndStack(const string& first, stringstream& rest)
 {
     string a,b;
     // input from keyboard or display to screen
@@ -1389,19 +1395,23 @@ Instruction* Runner::MemAndIO(const string& first, stringstream& rest)
         rest >> a;
         return new StackInstruction(first, numberReg(a), virtualMachine.getSystemStack());
     }
+    return nullptr;
+}
 
+Instruction* Runner::parseLoadStore(const string& first, stringstream& rest){
+    if (first != "LOAD" && first != "STORE") return nullptr; // exit early if not memory
+
+    string a, b;
+    
     // loading from memory into a register
     if (first == "LOAD"){
         rest >> a >> b;
         if (a.back() == ',') {a.pop_back();} // clean comma
-
         if (b.front() == '[') {
             b = b.substr(1, b.length() -2); // clean bracket
-
             // if loading from an address stored inside a register, eg. Load R1, [R2]
             if (b[0] == 'R' || b[0] == 'r') {
                 return new MoveInstruction(3, numberReg(a), numberReg(b)); }
-
             // loading direct from a direct memory number, (eg. load R1, 20)
             return new LoadStoreInstruction(1, numberReg(a), static_cast<signed char>(stoi(b)));
         }
@@ -1411,20 +1421,16 @@ Instruction* Runner::MemAndIO(const string& first, stringstream& rest)
     if (first == "STORE"){
         rest >> a >> b;
         if (a.back() == ',') {a.pop_back();} // clean comma
-            
         // if storing into an address pointed to by a register, eg. store R1, [R2]
         if (b.front() == '['){
             b = b.substr(1, b.length() - 2); // clean brackets
-            return new LoadStoreInstruction(3, numberReg(a), numberReg(b));
-        }
+            return new LoadStoreInstruction(3, numberReg(a), numberReg(b)); }
         else if (a[0] == 'R' || a[0]== 'r') {
             // storing directly into a specific memory slot (eg. store R3, 20), 20 is the memory address R3 is the register that holds the value to be stored
-            return new LoadStoreInstruction(2, numberReg(a), static_cast<signed char>(stoi(b)));
-        }
+            return new LoadStoreInstruction(2, numberReg(a), static_cast<signed char>(stoi(b))); }
         // stores into memory slot (eg. store 20, R3), this also stores the value in register 3 to memory 20
         else  {
-            return new LoadStoreInstruction(2, numberReg(b), static_cast<signed char>(stoi(a)));
-        }
+            return new LoadStoreInstruction(2, numberReg(b), static_cast<signed char>(stoi(a))); }
     }
     return nullptr; // return nothing if nothing matches this category
 }
@@ -1475,6 +1481,22 @@ Runner::~Runner()
         {delete program.at(i);}
 }
 
+void Runner::decodeAndStore(string currentLine){
+    stringstream lineStream(currentLine); // turn the string into a stream to read word by word
+        string first;
+        lineStream >> first; // read the first word (eg. ADD)
+
+        // try to translate the instruction by passing it into our 3 parser functions, if the first cant handle it, then returns nullptr, so we try MemAndIO
+        Instruction* inst = MathAndLogic(first, lineStream);
+        if (!inst) inst = parseIOAndStack(first, lineStream);
+        if (!inst) inst = parseLoadStore(first, lineStream);
+        if (!inst) inst = ShiftAndReset(first, lineStream);
+        
+        // if one of the parsers successfully created an instruction, save it
+        if (inst) program.push_back(inst); 
+        else cout << "Warning: Unrecognized command -> " << first << "\n";
+}
+
 void Runner::loadProgram(const string& filename)
 {
     // Read .asm file line by line
@@ -1501,21 +1523,8 @@ void Runner::loadProgram(const string& filename)
     // take lines out the queue one by one, translate them and put them into a vector
     while(!lineQueue.isEmpty())
     {
-        string currentLine = lineQueue.front();
+        decodeAndStore(lineQueue.front());
         lineQueue.dequeue();
-
-        stringstream lineStream(currentLine); // turn the string into a stream to read word by word
-        string first;
-        lineStream >> first; // read the first word (eg. ADD)
-
-        // try to translate the instruction by passing it into our 3 parser functions, if the first cant handle it, then returns nullptr, so we try MemAndIO
-        Instruction* inst = MathAndLogic(first, lineStream);
-        if (!inst) inst = MemAndIO(first, lineStream);
-        if (!inst) inst = ShiftAndReset(first, lineStream);
-        
-        // if one of the parsers successfully created an instruction, save it
-        if (inst) program.push_back(inst); 
-        else cout << "Warning: Unrecognized command -> " << first << "\n";
     }
 }
 
@@ -1532,12 +1541,9 @@ void Runner::executeProgram(bool saveToFile, const string& outputFilename)
             // tell the specific instruction to execute itself on our virtual machine
             program.at(i) ->execute(virtualMachine); // move the program counter forward by 1
             virtualMachine.incrementPC(); // move the program counter forward by 1
-
-            // Always display execution on screen
-            dumpStateToScreen();
-
-            dumpStateToFile(outFile);
         }
+        dumpStateToScreen();
+        dumpStateToFile(outFile);
     }
     // if an error was thrown inside execute(), catch it here and print a safe error message
     catch(const VMException& e)
