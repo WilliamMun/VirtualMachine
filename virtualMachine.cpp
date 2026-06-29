@@ -804,9 +804,11 @@ class Runner {
 
         // acts as translator, the read text from file and figure whih instruction object to create
         Instruction* MathAndLogic(const string& first, stringstream& rest);
-        Instruction* MemAndIO(const string& first, stringstream& rest);
+        Instruction* parseIOAndStack(const string& first, stringstream& rest);
+        Instruction* parseLoadStore(const string& first, stringstream& rest);
         Instruction* ShiftAndReset(const string& first, stringstream& rest);
         string buildCpuStateString(); // build the shared cpu state to prevent repetition
+        void decodeAndStore(string currentline); 
 
     public:
         Runner() {}  // default constructor
@@ -1342,6 +1344,22 @@ Instruction* Runner::handleMove(int reg, string value) {
         return new MoveInstruction(1, reg, stoi(value));
     }
 
+void Runner::decodeAndStore(string currentLine){
+    stringstream lineStream(currentLine); // turn the string into a stream to read word by word
+        string first;
+        lineStream >> first; // read the first word (eg. ADD)
+
+        // try to translate the instruction by passing it into our 3 parser functions, if the first cant handle it, then returns nullptr, so we try MemAndIO
+        Instruction* inst = MathAndLogic(first, lineStream);
+        if (!inst) inst = parseIOAndStack(first, lineStream);
+        if (!inst) inst = parseLoadStore(first, lineStream);
+        if (!inst) inst = ShiftAndReset(first, lineStream);
+        
+        // if one of the parsers successfully created an instruction, save it
+        if (inst) program.push_back(inst); 
+        else cout << "Warning: Unrecognized command -> " << first << "\n";
+}
+
 Instruction* Runner::MathAndLogic(const string& first, stringstream& rest)
 {
     string dest,value;
@@ -1379,7 +1397,7 @@ Instruction* Runner::MathAndLogic(const string& first, stringstream& rest)
         return new ArithmeticInstruction(first, reg, stoi(value), true); } // means its immediate
 }
 
-Instruction* Runner::MemAndIO(const string& first, stringstream& rest)
+Instruction* Runner::parseIOAndStack(const string& first, stringstream& rest)
 {
     string a,b;
     // input from keyboard or display to screen
@@ -1393,19 +1411,23 @@ Instruction* Runner::MemAndIO(const string& first, stringstream& rest)
         rest >> a;
         return new StackInstruction(first, numberReg(a), virtualMachine.getSystemStack());
     }
+    return nullptr;
+}
 
+Instruction* Runner::parseLoadStore(const string& first, stringstream& rest){
+    if (first != "LOAD" && first != "STORE") return nullptr; // exit early if not memory
+
+    string a, b;
+    
     // loading from memory into a register
     if (first == "LOAD"){
         rest >> a >> b;
         if (a.back() == ',') {a.pop_back();} // clean comma
-
         if (b.front() == '[') {
             b = b.substr(1, b.length() -2); // clean bracket
-
             // if loading from an address stored inside a register, eg. Load R1, [R2]
             if (b[0] == 'R' || b[0] == 'r') {
                 return new MoveInstruction(3, numberReg(a), numberReg(b)); }
-
             // loading direct from a direct memory number, (eg. load R1, 20)
             return new LoadStoreInstruction(1, numberReg(a), static_cast<signed char>(stoi(b)));
         }
@@ -1415,20 +1437,16 @@ Instruction* Runner::MemAndIO(const string& first, stringstream& rest)
     if (first == "STORE"){
         rest >> a >> b;
         if (a.back() == ',') {a.pop_back();} // clean comma
-            
         // if storing into an address pointed to by a register, eg. store R1, [R2]
         if (b.front() == '['){
             b = b.substr(1, b.length() - 2); // clean brackets
-            return new LoadStoreInstruction(3, numberReg(a), numberReg(b));
-        }
+            return new LoadStoreInstruction(3, numberReg(a), numberReg(b)); }
         else if (a[0] == 'R' || a[0]== 'r') {
             // storing directly into a specific memory slot (eg. store R3, 20), 20 is the memory address R3 is the register that holds the value to be stored
-            return new LoadStoreInstruction(2, numberReg(a), static_cast<signed char>(stoi(b)));
-        }
+            return new LoadStoreInstruction(2, numberReg(a), static_cast<signed char>(stoi(b))); }
         // stores into memory slot (eg. store 20, R3), this also stores the value in register 3 to memory 20
         else  {
-            return new LoadStoreInstruction(2, numberReg(b), static_cast<signed char>(stoi(a)));
-        }
+            return new LoadStoreInstruction(2, numberReg(b), static_cast<signed char>(stoi(a))); }
     }
     return nullptr; // return nothing if nothing matches this category
 }
@@ -1505,21 +1523,8 @@ void Runner::loadProgram(const string& filename)
     // take lines out the queue one by one, translate them and put them into a vector
     while(!lineQueue.isEmpty())
     {
-        string currentLine = lineQueue.front();
+        decodeAndStore(lineQueue.front());
         lineQueue.dequeue();
-
-        stringstream lineStream(currentLine); // turn the string into a stream to read word by word
-        string first;
-        lineStream >> first; // read the first word (eg. ADD)
-
-        // try to translate the instruction by passing it into our 3 parser functions, if the first cant handle it, then returns nullptr, so we try MemAndIO
-        Instruction* inst = MathAndLogic(first, lineStream);
-        if (!inst) inst = MemAndIO(first, lineStream);
-        if (!inst) inst = ShiftAndReset(first, lineStream);
-        
-        // if one of the parsers successfully created an instruction, save it
-        if (inst) program.push_back(inst); 
-        else cout << "Warning: Unrecognized command -> " << first << "\n";
     }
 }
 
