@@ -1246,7 +1246,7 @@ LoadStoreInstruction::LoadStoreInstruction(int m, int dRI, int aRI)
     }
 
     if(aRI >= 0 && aRI < 8){
-        addressRegisterIndex = dRI;
+        addressRegisterIndex = aRI;
     } else {
         throw VMException("Register index out of bound. Data register only ranged from R0 to R7.");
     }
@@ -1591,8 +1591,15 @@ int main() {
 
     string filename;
 
-    cout << "Enter the name of the assembly file you want to run (eg., test.asm): ";
-    cin >> filename;
+    try{
+        cout << "Enter the name of the assembly file you want to run (eg., test.asm): ";
+        cin >> filename;
+        
+        if(filename.substr(filename.length() - 4) != ".asm")
+            throw VMException("Invalid input file type.");
+    } catch (VMException& e){
+        cout << e.getErrorMessage() << endl;
+    } // @todo: throw error and it will cause program crash directly.
 
     interpreter.loadProgram(filename);
     interpreter.executeProgram();
