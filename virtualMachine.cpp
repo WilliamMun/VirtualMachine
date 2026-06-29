@@ -800,6 +800,8 @@ class Runner {
         bool isBlankLine(string dummy); // helper function, checks if a line is empty or just spaces
         string format4(int num); // Helper function to pad numbers with leading zeroes (eg. 5 into 0005)
         int numberReg(string dummy); // helper function, extracts the number from a register (eg. R1 becomes 1)
+        Instruction* handleMove(int reg, string value);
+
         // acts as translator, the read text from file and figure whih instruction object to create
         Instruction* MathAndLogic(const string& first, stringstream& rest);
         Instruction* MemAndIO(const string& first, stringstream& rest);
@@ -1326,6 +1328,20 @@ int Runner::numberReg(string dummy)
     return 0;
 }
 
+Instruction* Runner::handleMove(int reg, string value) {
+        if (value.front() == '[') {
+            // Register indirect [R1], we are moving based on a memory address stored in a register
+            string inner = value.substr(1, value.length() - 2); // strip the brackets to get R1
+            return new MoveInstruction(3, reg, numberReg(inner));
+        }
+        else if (value[0] == 'R' || value[0] == 'r'){
+            // Register to register (eg. MOV R1, R2)
+            return new MoveInstruction(2, reg, numberReg(value));
+        }
+        // immediate to register (eg. MOV R1, 5)
+        return new MoveInstruction(1, reg, stoi(value));
+    }
+
 Instruction* Runner::MathAndLogic(const string& first, stringstream& rest)
 {
     string dest,value;
@@ -1351,28 +1367,16 @@ Instruction* Runner::MathAndLogic(const string& first, stringstream& rest)
 
     // handle move instructions which have diff modes
     if (first == "MOV") {
-        if (value.front() == '[') {
-            // Register indirect [R1], we are moving based on a memory address stored in a register
-            string inner = value.substr(1, value.length() - 2); // strip the brackets to get R1
-            return new MoveInstruction(3, reg, numberReg(inner));
-        }
-        else if (value[0] == 'R' || value[0] == 'r'){
-            // Register to register (eg. MOV R1, R2)
-            return new MoveInstruction(2, reg, numberReg(value));
-        }
-        // immediate to register (eg. MOV R1, 5)
-        return new MoveInstruction(1, reg, stoi(value));
-    }
+        return handleMove(reg,value); }
+        
     // if wasnt a MOV, it must be basic math operating
     // check if the second value is a register (starting with R or r)
     if (value[0] == 'R' || value[0] == 'r'){
         // if its a register (eg. add r1, r2)
-        return new ArithmeticInstruction(first, reg, numberReg(value), false);// means not immediate)
-    }
+        return new ArithmeticInstruction(first, reg, numberReg(value), false); } // means not immediate)
     // it is an immediate number (eg. add r1, 6)
     else {
-        return new ArithmeticInstruction(first, reg, stoi(value), true);} // means its immediate
-        // to be changed after zr implement
+        return new ArithmeticInstruction(first, reg, stoi(value), true); } // means its immediate
 }
 
 Instruction* Runner::MemAndIO(const string& first, stringstream& rest)
