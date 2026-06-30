@@ -1354,7 +1354,7 @@ int ArithmeticInstruction::compute(int v1, int v2){
     if (ar == "SUB") return v1 - v2;
     if (ar == "MUL") return v1 * v2;
     if (ar == "DIV") {
-        if (v1 == 0) throw VMException("Error: Division by 0."); // throw exception when v1 is divided by 0
+        if (v1 == 0) throw LogicException("Division by 0."); // throw exception when v1 is divided by 0
         return v2 / v1;
     }
     if (ar != "ADD" && ar != "SUB" && ar != "MUL" && ar != "DIV") throw VMException ("Error: Invalid operation."); // throw exception when operation invalid
