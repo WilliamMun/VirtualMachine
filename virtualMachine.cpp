@@ -5,41 +5,140 @@
 #include <fstream>
 using namespace std;
 
+/**
+ * @brief   Base Exception class 
+ * @details Handle all types of exception
+ * @author  Mun William
+ */
 class VMException {
     protected:
+        // String that stores the error message
         string errorMessage;
     public:
+        /**
+         * @brief     Parameterized constructor. Constructs VMException object with the respective error message
+         * @param msg String that contains error message passed by other function
+         * @post      VMException object is created.
+         * @author    Mun William
+         */
         VMException(const string& msg): errorMessage(msg) {}
+
+        /**
+         * @brief  Destructor. Destructs VMException objects and return the memory space to operating system.
+         * @note   'virtual' ensures that the derived exception class will be destroyed before base class destroy, prevents dangling pointers of the derived object pointer.
+         * @author Mun William
+         */
         virtual ~VMException() {}
+
+        /**
+         * @brief  Getter function. Retrieve error message of the exception 
+         * @note   'const' prevents modification of errorMessage variable 
+         * @return Returns error message in constant string reference 
+         * @author Mun William
+         */
         virtual const string& getErrorMessage() const { return errorMessage; }
 };
 
+/**
+ * @brief   Derived class from VMException
+ * @details Handles file related exception
+ * @author  Mun William
+ */
 class FileException : public VMException {
     private:
+        // filename that has error
         string filename;
+
     public: 
+        /**
+         * @brief     Parameterized constructor. Constructs FileException object
+         * @param fn  Filename that has error
+         * @param msg Error message passed by other function
+         * @post      FileException object created and constructs VMException with its specialized error header.
+         * @author    Mun William
+         */
         FileException(const string& fn, const string& msg) : VMException("FILE ERROR- " + msg + "\nFATAL FILE- " + fn), filename(fn) {}
+
+        /**
+         * @brief Getter function. Retrieves the filename that contains error.
+         * @note   'const' prevents modification of filename variable 
+         * @return Returns filename in constant string reference
+         * @author Mun William
+         */
         const string& getFilename() const { return filename; }
 };
 
+/**
+ * @brief   Derived class from VMException
+ * @details Handles hardware related exception, such as Memory, Register, FlagRegister
+ * @author  Mun William
+ */
 class HardwareException : public VMException {
     public:
+        /**
+         * @brief     Parameterized constructor. Constructs HardwareException object
+         * @param msg Error message passed by other function
+         * @post      HardwareException object created and constructs VMException with its specialized error header.
+         * @author    Mun William
+         */
         HardwareException(const string& msg) : VMException("HARDWARE ERROR- " + msg) {}
 };
 
+/**
+ * @brief   Derived class from VMException
+ * @details Handles syntax related exception. Handles all typos and unintentionally left commas, spaces or additional symbols that is not recognizable by the program
+ * @author  Mun William
+ */
 class SyntaxException : public VMException {
     public:
+        /**
+         * @brief     Parameterized constructor. Constructs SyntaxException object
+         * @param msg Error message passed by other function
+         * @post      SyntaxException object created and constructs VMException with its specialized error header.
+         * @author    Mun William
+         */
         SyntaxException(const string& msg) : VMException("SYNTAX ERROR- " + msg) {}
 };
 
+/**
+ * @brief   Derived class from VMException
+ * @details Handles logic related exception. For example, error of operation in data structures and divides a 0.
+ * @author  Mun William
+ */
 class LogicException : public VMException {
     public:
+        /**
+         * @brief     Parameterized constructor. Constructs LogicException object
+         * @param msg Error message passed by other function
+         * @post      LogicException object created and constructs VMException with its specialized error header.
+         * @author    Mun William
+         */
         LogicException(const string& msg) : VMException("LOGIC ERROR- " + msg) {}
 };
 
+/**
+ * @brief   Derived class from VMException
+ * @details Handles run time crash exception. Catches all the exception class above during run time and format the error header properly with showing PC counter and command that causes crash, and shows the reason (error message).
+ * @author  Mun William
+ */
 class RunTimeCrashException : public VMException {
     public:
+        /**
+         * @brief        Overloaded parameterized constructor. Constructs RunTimeCrashException object
+         * @param errMsg Error message passed by other function
+         * @param PC     Integer that storing program counter causes crash
+         * @param cmd    Instruction string that causes crash
+         * @post         RunTimeCrashException object created and constructs VMException with its specialized error header.
+         * @author       Mun William
+         */
         RunTimeCrashException(const string& errMsg, int PC, const string& cmd): VMException("CRASH AT PC[" + to_string(PC) + "]\n" + "Command: " + cmd + "\n" + "Reason: " + errMsg) {}
+        
+        /**
+         * @brief        Overloaded parameterized constructor. Constructs RunTimeCrashException object
+         * @param errMsg Error message passed by other function
+         * @post         RunTimeCrashException object created and constructs VMException with its specialized error header.
+         * @author       Mun William
+         */
         RunTimeCrashException(const string& errMsg): VMException("COMPILATION ERROR. \nProgram stop compiling. \nReason: " + errMsg) {}
 };
 
@@ -103,7 +202,7 @@ class CustomVector {
          * @brief  Removes the last element from the vector.
          * @pre    The vector must not be empty (current_size must be greater than 0).
          * @post   Explicitly calls the destructor of the object being removed (.~T()) to ensure complete memory cleanup, then shrinks the logical size. 
-         * @throw  VMException if the vector is already empty (current_size == 0).
+         * @throws LogicException if the vector is already empty (current_size == 0).
          * @author Ong Zhong Yik
          */
         void pop_back();
@@ -113,7 +212,7 @@ class CustomVector {
          * @note        The 'const' keyword guarantees that calling this function will not modify the internal state of the vector.
          * @pre         The index must be within the valid range of currently stored elements (0 <= index < current_size).
          * @param index The integer position of the element to retrieve.
-         * @throws      VMException if the index is out of bounds (negative or <= current_size).
+         * @throws      LogicException if the index is out of bounds (negative or <= current_size).
          * @return      The element of type T located at the specified index.
          * @author      Ong Zhong Yik
          */
@@ -134,7 +233,7 @@ class CustomVector {
          * @note        Used when the vector is passed as a constant reference. The 'const' keyword guarantees that calling this function will not modify the internal state of the vector.
          * @pre         The index must be within the valid range of currently stored elements (0 <= index < current_size).
          * @param index The integer position of the element to access or modify.
-         * @throws      VMException if  the index is out of bounds (negative or <= current_size).
+         * @throws      LogicException if  the index is out of bounds (negative or <= current_size).
          * @return      A constant reference to the element of type T at the specified index.
          * @author      Ong Zhong Yik
          */
@@ -152,7 +251,7 @@ class CustomVector {
          * @brief       Removes an element at a specific index.
          * @pre         The index must be within the valid boundaries of the vector (0 <= index < current_size).
          * @param index The integer position of the element to be removed.
-         * @throws      VMException if the index is out of bounds (negative or greater than/equal to current_size).
+         * @throws      LogicException if the index is out of bounds (negative or greater than/equal to current_size).
          * @post        Calls the destructor on the target element and shifts all subsequent elements one step forward to fill the gap. 
          * @author      Ong Zhong Yik
          */
@@ -231,7 +330,7 @@ class CustomStack {
          * @brief   Removes the top element from the stack (First-Out).
          * @details Call CustomVector's pop_back() method. 
          * @pre     Stack should not be empty.
-         * @throws  VMException if the stack is empty.
+         * @throws  LogicException if the stack is empty.
          * @post    The element at the top of the stack is destroyed and removed, decreasing the internal logical size by 1.
          * @author  Ong Zhong Yik
          */
@@ -249,7 +348,7 @@ class CustomStack {
          * @brief  Retrieves the top element of the stack without removing it.
          * @note   The 'const' keyword ensures that the stack's state and data remain unchanged after peeking.
          * @pre    Stack should not be empty.
-         * @throws VMException if the stack is empty.
+         * @throws LogicException if the stack is empty.
          * @return Return the last element of the CustomVector. 
          * @author Ong Zhong Yik
          */
@@ -307,7 +406,7 @@ class CustomQueue {
          * @brief   Removes the front element from the queue.
          * @details Call CustomVector's erase method so all trailing elements automatically shift forward. 
          * @pre     Queue should not be empty.
-         * @throws  VMException if the queue is empty.
+         * @throws  LogicException if the queue is empty.
          * @post    The element at the front of the queue is destroyed and removed, and all remaining elements are shifted forward, decreasing the size by 1.
          * @author  Ong Zhong Yik
          */
@@ -325,7 +424,7 @@ class CustomQueue {
          * @brief  Retrieves the front element of the queue without removing it.
          * @note   The 'const' keyword ensures that peeking at the front element does not modify the queue's state or data.
          * @pre    Queue should not be empty.
-         * @throws VMException if the queue is empty.
+         * @throws LogicException if the queue is empty.
          * @return Return the first element of the CustomVector. 
          * @author Ong Zhong Yik
          */
@@ -600,7 +699,7 @@ class Memory {
          * @brief         Retrives value in the specific address (index of array)
          * @param address Index of the 1-dimensional array
          * @pre           address value should between 0 and 64
-         * @throws        VMException if address value smaller than 0 or larger than 64.
+         * @throws        HardwareException if address value smaller than 0 or larger than 64.
          * @return        Signed character stored inside the specific address (index)
          * @note          'const' keyword at the end prevents modification of value stored in the address.
          * @author        Mun William
@@ -612,7 +711,7 @@ class Memory {
          * @param address Index of 1-dimensional array
          * @param value   New value to be stored in the memory address
          * @pre           address value should beteween 0 and 64
-         * @throws        VMException if address value smaller than 0 or larger than 64.
+         * @throws        HardwareException if address value smaller than 0 or larger than 64.
          * @post          The specific memory address is updated with the value passed in to the function.
          * @author        Mun William
          */
@@ -683,7 +782,7 @@ class ArithmeticInstruction : public Instruction {
         * @param v1 Integer value representing the first operand, which is the destination register value.
         * @param v2 Integer value representing the second operand, which is source register value or immediate literal.
         * @throws LogicException if the operation is division and the divisor is zero.
-        * @throws VMException if the operation string 'ar' is not match with "ADD", "SUB", "MUL", "DIV".
+        * @throws SyntaxException if the operation string 'ar' is not match with "ADD", "SUB", "MUL", "DIV".
         * @return Integer representing the computed result of the mathematical operation.
         * @note Double-check the operand order in the division block; it currently performs v2 / v1 instead of v1 / v2.
         * @author Kong Zhun Rui
@@ -707,7 +806,7 @@ class ArithmeticInstruction : public Instruction {
         * @details Translates "INC" and "DEC" into "ADD" and "SUB" with a literal factor of 1.
         * @param operation String representing the syntax keyword ("INC" or "DEC") of the operation.
         * @param dest Integer value representing the targeted data register index.
-        * @throws VMException if the operation string does not match "INC" or "DEC".
+        * @throws SyntaxException if the operation string does not match "INC" or "DEC".
         * @post Created a new ArithmeticInstruction object initialized as a mapped binary operation with an immediate value of 1.
         * @author Kong Zhun Rui
         */
@@ -720,6 +819,13 @@ class ArithmeticInstruction : public Instruction {
          * @author Kong Zhun Rui
          */
         void execute(CPU& cpu) override;
+
+        /**
+         * @brief  Getter function. Get the command string of the instruction
+         * @note   'const' prevents modification on the command string.
+         * @return C-string that storing arithmetic command
+         * @author Mun William
+         */
         const char* getCommand() const override { return ar.c_str(); }
 };
 
@@ -753,6 +859,13 @@ class MoveInstruction : public Instruction{
          * @author Kong Zhun Rui
          */
         void execute(CPU& cpu) override;
+
+        /**
+         * @brief  Getter function. Get the command string of the instruction
+         * @note   'const' prevents modification on the command string.
+         * @return C-string that storing move command
+         * @author Mun William
+         */
         const char* getCommand() const override { return (mode == 4) ? "LOAD" : "MOV"; }
 };
 
@@ -783,6 +896,13 @@ class IOInstruction : public Instruction {
         * @author Kong Zhun Rui
         */
         void execute(CPU& cpu) override;
+        
+        /**
+         * @brief  Getter function. Get the command string of the instruction
+         * @note   'const' prevents modification on the command string.
+         * @return C-string that storing I/O command
+         * @author Mun William
+         */
         const char* getCommand() const override { return op.c_str(); }
 };
 
@@ -815,6 +935,13 @@ class ShiftInstruction : public Instruction {
         * @author Kong Zhun Rui
         */
         void execute(CPU& cpu) override;
+
+        /**
+         * @brief  Getter function. Get the command string of the instruction
+         * @note   'const' prevents modification on the command string.
+         * @return C-string that storing logical command (shift and rotate operation)
+         * @author Mun William
+         */
         const char* getCommand() const override { return op.c_str(); }
 };
 /**
@@ -840,6 +967,13 @@ class ResetFlagsInstruction : public Instruction {
         * @author Kong Zhun Rui
         */
         void execute(CPU& cpu) override;
+
+        /**
+         * @brief  Getter function. Get the command string of the instruction
+         * @note   'const' prevents modification on the command string.
+         * @return C-string that storing reset flag command
+         * @author Mun William
+         */
         const char* getCommand() const override { return "RESET"; }
 };
 
@@ -875,7 +1009,7 @@ class LoadStoreInstruction : public Instruction {
          * @param dRI    Integer value represent data register index
          * @param memAdd Signed char value represent memory address (index of array with 64 elements)
          * @pre          m should be in range 1-3, dRI should be in range 0-7, memAdd should be in range 0-63
-         * @throw        VMException if m smaller than 1 or larger than 3, dRI smaller than 0 or larger than 7, memAdd smaller than 0 larger than 63.
+         * @throws       SyntaxException if m smaller than 1 or larger than 3
          * @post         Created a new LoadStoreInstruction object.
          * @author       Mun William
          */
@@ -888,7 +1022,7 @@ class LoadStoreInstruction : public Instruction {
          * @param dRI Integer value represent data register index
          * @param aRI Integer value represent index of data register which storing an address
          * @pre       m should be in range 1-3, dRI should be in range 0-7, aRI should be in range 0-7
-         * @throw     VMException if m smaller than 1 or larger than 3, dRI smaller than 0 or larger than 7, aRI smaller than 0 or larger than 7.
+         * @throws    SyntaxException if m smaller than 1 or larger than 3.
          * @post      Created a new LoadStoreInstruction object.
          * @author    Mun William
          */
@@ -898,12 +1032,18 @@ class LoadStoreInstruction : public Instruction {
          * @brief     Executes the LOAD or STORE instruction based on its mode.
          * @param cpu Reference to CPU object, that containing the memory, register.
          * @note      This is a polymorphic function. 'override' means LoadStoreInstruction::execute() function will override pure virtual function, Instruction::execute() in base class.
-         * @throw     VMException if mode is not 1, 2, or 3.
+         * @throws    SyntaxException if mode is not 1, 2, or 3.
          * @post      Execute the respective instruction, load value found in specified memory address into specified register, or store value found in specified register into specified memory address.
          * @author    Mun William
          */
         void execute(CPU& cpu) override;
 
+        /**
+         * @brief  Getter function. Get the command string of the instruction
+         * @note   'const' prevents modification on the command string.
+         * @return C-string that storing load or store command
+         * @author Mun William
+         */
         const char* getCommand() const override { return (mode == 1) ? "LOAD" : "STORE"; }
 };
 
@@ -929,7 +1069,7 @@ class StackInstruction : public Instruction {
          * @param op    String that represent the type of stack operation.
          * @param dRI   Integer value represent data register index
          * @param sysSk CustomStack reference that point to the stack in CPU.
-         * @throw       VMException if op is not "PUSH" or "POP", dRI smaller than 0 or larger than 7
+         * @throws      SyntaxException if op is not "PUSH" or "POP".
          * @post        Created a new StackInstruction object.
          * @author      Mun William
          */
@@ -939,12 +1079,18 @@ class StackInstruction : public Instruction {
          * @brief     Executes the PUSH or POP instruction.
          * @param cpu Reference to CPU object, that containing the memory, register.
          * @note      This is a polymorphic function. 'override' means StackInstruction::execute() function will override pure virtual function, Instruction::execute() in base class.
-         * @throw     VMException if operation is not "PUSH" or "POP".
+         * @throws    SyntaxException if operation is not "PUSH" or "POP".
          * @post      Execute the PUSH instruction, push value in register into program stack, or POP instruction, pop value in the program stack into the register.
          * @author    Mun William
          */
         void execute(CPU& cpu) override;
 
+        /**
+         * @brief  Getter function. Get the command string of the instruction
+         * @note   'const' prevents modification on the command string.
+         * @return C-string that storing stack command
+         * @author Mun William
+         */
         const char* getCommand() const override { return operation.c_str(); }
 };
 
@@ -1264,7 +1410,7 @@ int ArithmeticInstruction::compute(int v1, int v2){
         if (v1 == 0) throw LogicException("Division by 0."); // throw exception when v1 is divided by 0
         return v2 / v1;
     }
-    if (ar != "ADD" && ar != "SUB" && ar != "MUL" && ar != "DIV") throw VMException ("Error: Invalid operation."); // throw exception when operation invalid
+    if (ar != "ADD" && ar != "SUB" && ar != "MUL" && ar != "DIV") throw SyntaxException ("Error: Invalid operation."); // throw exception when operation invalid
     return 0;
 }
 
@@ -1400,7 +1546,7 @@ LoadStoreInstruction::LoadStoreInstruction(int m, int dRI, int aRI)
     if(m >= 1 && m <= 3){
         mode = m;
     } else {
-        throw VMException("Invalid load or store operation.");
+        throw SyntaxException("Invalid load or store operation.");
     }
 }
 
