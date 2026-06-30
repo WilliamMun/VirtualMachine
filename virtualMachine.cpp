@@ -1442,22 +1442,22 @@ Instruction* Runner::MathAndLogic(const string& first, stringstream& rest) {
     // if the command is increment or decrement, only uses 1 register
     if (first == "INC" || first == "DEC") {
         rest >> dest; // read the next word (eg. R1)
-        if (dest.empty()) throw SyntaxException("Missing register for: " + first);
-        if (dest.back() == ',') throw SyntaxException("Unexpected comma in: " + first + " " + dest);
+        if (dest.empty()) throw SyntaxException("Missing register for: ");
+        if (dest.back() == ',') throw SyntaxException("Unexpected comma in: " + dest);
         return new ArithmeticInstruction(first, numberReg(dest));
     }
 
     // for math and mov, read the next two words (destination and value)
     rest >> dest >> value;
 
-    if (dest.empty()) throw SyntaxException("Missing operands for command: " + first);
+    if (dest.empty()) throw SyntaxException("Missing operands for command: ");
     
     if (value.empty()) {
-        if (dest.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + first + " " + dest);
-        if (dest.back() == ',') throw SyntaxException("Missing value: " + first + " " + dest);
-        throw SyntaxException("Missing space after comma: " + first + " " + rest.str());
+        if (dest.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + dest);
+        if (dest.back() == ',') throw SyntaxException("Missing value: " + dest);
+        throw SyntaxException("Missing space after comma: " + rest.str());
     }
-    if (dest.back() != ',') throw SyntaxException("Missing comma: " + first + " " + dest + " " + value);
+    if (dest.back() != ',') throw SyntaxException("Missing comma: " + dest + " " + value);
 
     // clean variable 'dest' (remove the trailing comma)
     dest.pop_back();
@@ -1485,9 +1485,9 @@ Instruction* Runner::parseIOAndStack(const string& first, stringstream& rest) {
 
     rest >> a;
 
-    if (a.empty()) throw SyntaxException("Missing register operand for command: " + first);
+    if (a.empty()) throw SyntaxException("Missing register operand for command: ");
 
-    if (a.back() == ',') throw SyntaxException("Unexpected comma after register in: " + first + " " + a);
+    if (a.back() == ',') throw SyntaxException("Unexpected comma after register in: " + a);
 
     // input from keyboard or display to screen
     if (first == "INPUT" || first == "DISPLAY"){
@@ -1502,12 +1502,12 @@ Instruction* Runner::parseLoadStore(const string& first, stringstream& rest){
     string a, b;
     rest >> a >> b;
 
-    if (a.empty()) throw SyntaxException("Missing operands for command: " + first);
+    if (a.empty()) throw SyntaxException("Missing operands for command: ");
     if (b.empty()) {
-        if (a.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + first + " " + a);
-        if (a.back() == ',') throw SyntaxException("Missing value operand for command: " + first);
-        else throw SyntaxException("Missing space after comma in: " + first + " " + rest.str()); }
-    if (a.back() != ',') throw SyntaxException("Missing comma after first operand in: " + first + " " + a + " " + b); 
+        if (a.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + a);
+        if (a.back() == ',') throw SyntaxException("Missing value operand for command: ");
+        else throw SyntaxException("Missing space after comma in: " + rest.str()); }
+    if (a.back() != ',') throw SyntaxException("Missing comma after first operand in: " + a + " " + b); 
      
     a.pop_back();
 
@@ -1516,7 +1516,7 @@ Instruction* Runner::parseLoadStore(const string& first, stringstream& rest){
         if (b.front() == '[') {
             b = b.substr(1, b.length() -2); // clean bracket
             // if loading from an address stored inside a register, eg. Load R1, [R2]
-            if (b[0] == 'R' || b[0] == 'r') return new MoveInstruction(3, numberReg(a), numberReg(b));
+            if (b[0] == 'R' || b[0] == 'r') return new LoadStoreInstruction(1, numberReg(a), numberReg(b));
 
             // loading direct from a direct memory number, (eg. load R1, [20])
             return new LoadStoreInstruction(1, numberReg(a), static_cast<signed char>(stoi(b)));
@@ -1544,7 +1544,7 @@ Instruction* Runner::ShiftAndReset(const string& first, stringstream& rest) {
 
     string a,b;
     rest >> a;
-    if (a.empty()) throw SyntaxException("Missing operands for command: " + first);
+    if (a.empty()) throw SyntaxException("Missing operands for command: ");
 
     // clearing the flags
     if (first == "RESET"){
@@ -1555,10 +1555,10 @@ Instruction* Runner::ShiftAndReset(const string& first, stringstream& rest) {
     rest >> b;
 
     if (b.empty()) {
-        if (a.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + first + " " + a);
-        if (a.back() == ',') throw SyntaxException("Missing value: " + first + " " + a);
-        throw SyntaxException("Missing space after comma in: " + first + " " + rest.str());}
-    if (a.back() != ',') throw SyntaxException("Missing comma: " + first + " " + a + " " + b);
+        if (a.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + a);
+        if (a.back() == ',') throw SyntaxException("Missing value: " + a);
+        throw SyntaxException("Missing space after comma in: " + rest.str());}
+    if (a.back() != ',') throw SyntaxException("Missing comma: " + a + " " + b);
 
     a.pop_back();
 
