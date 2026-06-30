@@ -1,46 +1,68 @@
 #include <iostream>
 #include <string>
-#include <stdexcept>
 #include <iomanip>
 #include <sstream>
 #include <fstream>
 using namespace std;
 
 class VMException {
-    private:
-        const char* errorMessage;
+    protected:
+        string errorMessage;
     public:
-        VMException(const char* msg) { errorMessage = msg; }
-        const char* getErrorMessage() const { return errorMessage; }
+        VMException(const string& msg): errorMessage(msg) {}
+        virtual ~VMException() {}
+        virtual const string& getErrorMessage() const { return errorMessage; }
 };
 
+class FileException : public VMException {
+    private:
+        string filename;
+    public: 
+        FileException(const string& fn, const string& msg) : VMException("FILE ERROR- " + msg), filename(fn) {}
+        const string& getFilename() const { return filename; }
+};
+
+class HardwareException : public VMException {
+    public:
+        HardwareException(const string& msg) : VMException("HARDWARE ERROR- " + msg) {}
+};
+
+class SyntaxException : public VMException {
+    public:
+        SyntaxException(const string& msg) : VMException("SYNTAX ERROR- " + msg) {}
+};
+
+class LogicException : public VMException {
+    public:
+        LogicException(const string& msg) : VMException("LOGIC ERROR- " + msg) {}
+};
+
+class RunTimeCrashException : public VMException {
+    public:
+        RunTimeCrashException(const string& errMsg, int PC, const string& cmd): VMException("CRASH AT PC[" + to_string(PC) + "]\n" + "Command: " + cmd + "\n" + "Reason: " + errMsg) {}
+        RunTimeCrashException(const string& errMsg): VMException("COMPILATION ERROR. \nProgram stop compiling. \nReason: " + errMsg) {}
+};
+
+/**
+ * @brief   A generic dynamic array implementation that automatically manages its own memory and capacity.
+ * @details Unlike a standard fixed-size array, this custom vector can dynamically resize itself when full, preventing memory overflow and out-of-bounds errors. It serves as the secure, memory-managed backbone for other higher-level data structures in this project, such as CustomStack and CustomQueue, allowing them to expand infinitely without requiring complex manual memory reallocation or circular indexing logic.
+ * @author  Ong Zhong Yik
+ */
 template <typename T>
 class CustomVector {
     private:
-        /**
-         * @brief  Pointer to the dynamically allocated array that stores the elements.
-         * @note   Memory is managed manually. It grows when resize() is called and is freed in the destructor.
-         * @author Ong Zhong Yik
-         */
+        // Pointer to the dynamically allocated array that stores the elements.
         T* arr;
 
-        /**
-         * @brief  The total number of elements the vector can currently hold before needing to allocate more memory.
-         * @note   This value doubles every time the vector runs out of space.
-         * @author Ong Zhong Yik
-         */
+        // The total number of elements the vector can currently hold before needing to allocate more memory.
         int capacity;
 
-        /**
-         * @brief  The actual number of valid elements currently stored in the vector.
-         * @note   This is used to keep track of the logical size, which is always less than or equal to capacity.
-         * @author Ong Zhong Yik
-         */
+        // The actual number of valid elements currently stored in the vector.
         int current_size;
 
         /**
          * @brief  Helper function to double the capacity of the array when it becomes full.
-         * @note   Allocates a new larger array, copies existing elements over, and safely deletes the old array to prevent memory leaks.
+         * @post   Allocates a new larger array, copies existing elements over, and safely deletes the old array to prevent memory leaks.
          * @author Ong Zhong Yik
          */
         void resize();
@@ -48,96 +70,122 @@ class CustomVector {
     public:
         /**
          * @brief  Default Constructor. Initializes an empty vector.
-         * @note   Sets empty vector to initial dynamic memory.
+         * @post   Sets empty vector to initial dynamic memory.
          * @author Ong Zhong Yik
          */
         CustomVector();
 
         /**
          * @brief  Destructor. Destroys the CustomVector object and frees allocated memory.
-         * @note   Uses delete[] to safely release the dynamically allocated array back to the system, preventing memory leaks.
+         * @post   Uses delete[] to safely release the dynamically allocated array back to the system, preventing memory leaks.
          * @author Ong Zhong Yik
          */
         ~CustomVector() { delete[] arr; }
 
         /**
-         * @brief  Copy Constructor. Creates a new vector as a deep copy of another vector.
-         * @note   Allocates a completely new independent memory block to avoid double-free errors and shallow copy issues.
-         * @author Ong Zhong Yik
+         * @brief       Copy Constructor. Creates a new vector as a deep copy of another vector.
+         * @param right The constant reference to the existing CustomVector object that is being copied.
+         * @post        Allocates a completely new independent memory block to avoid double-free errors and shallow copy issues.
+         * @author      Ong Zhong Yik
          */
         CustomVector(const CustomVector<T>& right);
 
         /**
-         * @brief  Adds a new element to the end of the vector.
-         * @note   Automatically triggers the resize() function if the current size reaches the maximum capacity.
-         * @author Ong Zhong Yik
+         * @brief         Adds a new element to the end of the vector.
+         * @note          Automatically triggers the resize() function if the current size reaches the maximum capacity.
+         * @param element The data value of type T to be added to the vector.
+         * @post          The element is successfully appended to the end of the vector, and current_size is incremented by 1.
+         * @author        Ong Zhong Yik
          */
         void push_back(T element);
 
         /**
          * @brief  Removes the last element from the vector.
-         * @note   Explicitly calls the destructor of the object being removed (.~T()) to ensure complete memory cleanup, then shrinks the logical size. Throws underflow_error if empty.
+         * @pre    The vector must not be empty (current_size must be greater than 0).
+         * @post   Explicitly calls the destructor of the object being removed (.~T()) to ensure complete memory cleanup, then shrinks the logical size. 
+         * @throw  VMException if the vector is already empty (current_size == 0).
          * @author Ong Zhong Yik
          */
         void pop_back();
 
         /**
-         * @brief  Accesses the element at the specified index with strict boundary checking.
-         * @note   Throws out_of_range exception if the index is negative or greater than/equal to the current size. Safe for read operations.
-         * @author Ong Zhong Yik
+         * @brief       Accesses the element at the specified index with strict boundary checking.
+         * @note        The 'const' keyword guarantees that calling this function will not modify the internal state of the vector.
+         * @pre         The index must be within the valid range of currently stored elements (0 <= index < current_size).
+         * @param index The integer position of the element to retrieve.
+         * @throws      VMException if the index is out of bounds (negative or <= current_size).
+         * @return      The element of type T located at the specified index.
+         * @author      Ong Zhong Yik
          */
         T at(int index) const;
 
         /**
-         * @brief  Overloaded array subscript operator for accessing and modifying elements.
-         * @note   Returns a reference to the element. Throws out_of_range exception if the index is invalid.
-         * @author Ong Zhong Yik
+         * @brief       Overloaded array subscript operator for accessing and modifying elements.
+         * @pre         The index must be within the valid range of currently stored elements (0 <= index < current_size).
+         * @param index The integer position of the element to access or modify.
+         * @throws      VMException if the index is out of bounds (negative or <= current_size).
+         * @return      Reference to the element. 
+         * @author      Ong Zhong Yik
          */
         T &operator[](int index);
         
         /**
-         * @brief  Overloaded array subscript operator for accessing elements (read-only).
-         * @note   Used when the vector is passed as a constant reference. Throws out_of_range exception if the index is invalid.
-         * @author Ong Zhong Yik
+         * @brief       Overloaded array subscript operator for accessing elements (read-only).
+         * @note        Used when the vector is passed as a constant reference. The 'const' keyword guarantees that calling this function will not modify the internal state of the vector.
+         * @pre         The index must be within the valid range of currently stored elements (0 <= index < current_size).
+         * @param index The integer position of the element to access or modify.
+         * @throws      VMException if  the index is out of bounds (negative or <= current_size).
+         * @return      A constant reference to the element of type T at the specified index.
+         * @author      Ong Zhong Yik
          */
         const T &operator[](int index) const;
 
         /**
          * @brief  Returns the current number of valid elements inside the vector.
-         * @note   This returns current_size, not the total capacity.
+         * @note   The 'const' keyword guarantees that calling this function will not modify the internal state of the vector.
+         * @return An integer representing the current number of elements logically stored in the vector.
          * @author Ong Zhong Yik
          */
         int size() const { return current_size; }
 
-        /**
-         * @brief  Removes an element at a specific index.
-         * @note   Calls the destructor on the target element and shifts all subsequent elements one step forward to fill the gap. Throws out_of_range exception if index is invalid.
-         * @author Ong Zhong Yik
+       /**
+         * @brief       Removes an element at a specific index.
+         * @pre         The index must be within the valid boundaries of the vector (0 <= index < current_size).
+         * @param index The integer position of the element to be removed.
+         * @throws      VMException if the index is out of bounds (negative or greater than/equal to current_size).
+         * @post        Calls the destructor on the target element and shifts all subsequent elements one step forward to fill the gap. 
+         * @author      Ong Zhong Yik
          */
         void erase(int index);
 
         /**
-         * @brief  Copy Assignment Operator. Assigns the contents of one vector to another.
-         * @note   Safely handles self-assignment, deletes the old memory block, and performs a deep copy of the new data.
-         * @author Ong Zhong Yik
+         * @brief       Copy Assignment Operator. Assigns the contents of one vector to another.
+         * @note        The 'const' keyword in the parameter ensures that the source vector remains completely unmodified during the assignment process.
+         * @param right The constant reference to the source CustomVector object whose data is being copied.
+         * @post        Safely handles self-assignment, deletes the old memory block, and performs a deep copy of the new data.
+         * @return      A reference to the newly updated CustomVector object to support chained assignments.
+         * @author      Ong Zhong Yik
          */
         CustomVector& operator=(const CustomVector<T> &right);
 };
 
+/**
+ * @brief   A Last-In, First-Out (LIFO) data structure used for temporary storage and retrieval.
+ * @details The stack intentionally restricts access to only the top element (via push, pop, and peek) to enforce strict LIFO behavior, which is essential for operations like expression evaluation or managing CPU state. It does not implement the [] operator or at() function because allowing random access to intermediate elements would violate the foundational principles and security of a stack architecture.
+ * @author  Ong Zhong Yik
+ */
 template <typename T>
 class CustomStack {
     private:
-        /**
-         * @brief  The underlying dynamic array used to store the stack's elements.
-         * @note   Uses Composition. Delegating memory management to CustomVector makes the stack infinitely expandable.
-         * @author Ong Zhong Yik
-         */
+        
+        // Composition of CustomVector. The underlying dynamic array used to store the stack's elements.
         CustomVector<T> data;
 
     public:
         /**
          * @brief  Default Constructor. Initializes an empty stack.
          * @note   No manual allocation needed here; the underlying CustomVector handles its own initial setup.
+         * @post   A CustomStack object is created.
          * @author Ong Zhong Yik
          */
         CustomStack() {}
@@ -145,75 +193,85 @@ class CustomStack {
         /**
          * @brief  Destructor. Cleans up the stack when it is destroyed.
          * @note   Left empty because the CustomVector's destructor will automatically be triggered to free the memory.
+         * @post   CustomStack object is destroyed.
          * @author Ong Zhong Yik
          */
         ~CustomStack() {}
 
         /**
-         * @brief  Copy Constructor. Creates a new stack as a deep copy of an existing stack.
-         * @note   Uses an initialization list to directly delegate the deep copy process to CustomVector's copy constructor.
-         * @author Ong Zhong Yik
+         * @brief       Copy Constructor. Creates a new stack as a deep copy of an existing stack.
+         * @details     Uses an initialization list to directly delegate the deep copy process to CustomVector's copy constructor. 
+         * @note        The 'const' keyword ensures that the source stack being copied from cannot be altered during initialization.
+         * @param right A constant reference to the source CustomStack object to be duplicated.
+         * @post        A new identical copy of CustomStack object is created.
+         * @author      Ong Zhong Yik
          */
         CustomStack(const CustomStack<T>& right) : data(right.data) {}
 
         /**
-         * @brief  Copy Assignment Operator. Assigns the data of one stack to another.
-         * @note   Delegates the assignment logic and safe memory handling to CustomVector's assignment operator.
-         * @author Ong Zhong Yik
+         * @brief       Copy Assignment Operator. Assigns the data of one stack to another.
+         * @details     Delegates the assignment logic and safe memory handling to CustomVector's assignment operator. 
+         * @note        The 'const' keyword prevents modification of the source stack during the assignment operation.
+         * @param right A constant reference to the source CustomStack object providing the new data.
+         * @return      A reference to the updated CustomStack object to allow chained assignment.
+         * @author      Ong Zhong Yik
          */
         CustomStack& operator=(const CustomStack<T>& right);
 
         /**
-         * @brief  Pushes a new element onto the top of the stack (Last-In).
-         * @note   Directly calls CustomVector's push_back() method, allowing for dynamic resizing if needed.
-         * @author Ong Zhong Yik
+         * @brief         Pushes a new element onto the top of the stack (Last-In).
+         * @details       Directly calls CustomVector's push_back() method, allowing for dynamic resizing if needed.
+         * @param element The data value of type T to be added to the top of the stack.
+         * @post          The new element is placed at the top of the stack, and the internal logical size increases by 1.
+         * @author        Ong Zhong Yik
          */
         void push(T element) { data.push_back(element); }
 
         /**
-         * @brief  Removes the top element from the stack (First-Out).
-         * @note   Should call CustomVector's pop_back() method. Must throw an underflow_error if the stack is already empty.
-         * @author Ong Zhong Yik
+         * @brief   Removes the top element from the stack (First-Out).
+         * @details Call CustomVector's pop_back() method. 
+         * @pre     Stack should not be empty.
+         * @throws  VMException if the stack is empty.
+         * @post    The element at the top of the stack is destroyed and removed, decreasing the internal logical size by 1.
+         * @author  Ong Zhong Yik
          */
         void pop();
 
         /**
          * @brief  Checks whether the stack is currently empty.
-         * @note   Returns true if the underlying CustomVector's size is 0.
+         * @note   The 'const' keyword guarantees that calling this state-check function will not modify any internal data.
+         * @return Returns true if the underlying CustomVector's size is 0, false otherwise.
          * @author Ong Zhong Yik
          */
         bool isEmpty() const { return data.size() == 0; }
 
         /**
-         * @brief  Checks whether the stack has reached its maximum capacity.
-         * @note   Fixed to return true. Since the stack is backed by a dynamically expanding CustomVector, it is never technically full.
-         * @author Ong Zhong Yik
-         */
-        bool isFull() const { return true; } 
-
-        /**
          * @brief  Retrieves the top element of the stack without removing it.
-         * @note   Should return the last element of the CustomVector. Throws an underflow_error if the stack is empty.
+         * @note   The 'const' keyword ensures that the stack's state and data remain unchanged after peeking.
+         * @pre    Stack should not be empty.
+         * @throws VMException if the stack is empty.
+         * @return Return the last element of the CustomVector. 
          * @author Ong Zhong Yik
          */
         T peek() const;
 };
 
-
+/**
+ * @brief   A First-In, First-Out (FIFO) data structure used for sequential data processing and scheduling.
+ * @details The queue intentionally restricts access to only the front and back elements (via enqueue, dequeue, and front) to enforce strict FIFO behavior. It does not implement the [] operator or at() function because allowing random access to intermediate elements would violate the fundamental sequential nature of a queue, compromising its predictability and data integrity.
+ * @author  Ong Zhong Yik
+ */
 template <typename T>
 class CustomQueue {
     private:
-        /**
-         * @brief  The underlying dynamic array used to store the queue's elements.
-         * @note   Uses Composition. Delegating memory management to CustomVector removes the need for complex circular array logic (like calculating maxCapacity or using modulo).
-         * @author Ong Zhong Yik
-         */
+        // Composition of CustomVector. The underlying dynamic array used to store the queue's elements.
         CustomVector<T> data;
 
     public:
         /**
          * @brief  Default Constructor. Initializes an empty queue.
          * @note   No manual memory allocation needed here; the underlying CustomVector safely handles its own initialization.
+         * @post   A CustomQueue object is created.
          * @author Ong Zhong Yik
          */
         CustomQueue() {}
@@ -221,49 +279,65 @@ class CustomQueue {
         /**
          * @brief  Destructor. Cleans up the queue when it is destroyed.
          * @note   Left empty because the CustomVector's destructor will automatically be triggered when the queue goes out of scope, safely freeing the memory.
+         * @post   CustomQueue object is destroyed.
          * @author Ong Zhong Yik
          */
         ~CustomQueue() {}
 
         /**
-         * @brief  Copy Constructor. Creates a new queue as a deep copy of an existing queue.
-         * @note   Uses an initialization list to directly delegate the deep copy process to CustomVector's highly secure copy constructor.
-         * @author Ong Zhong Yik
+         * @brief       Copy Constructor. Creates a new queue as a deep copy of an existing queue.
+         * @details     Uses an initialization list to directly delegate the deep copy process to CustomVector's highly secure copy constructor.
+         * @note        The 'const' keyword ensures that the source queue being copied from remains strictly unmodified during the initialization process.
+         * @param right A constant reference to the source CustomQueue object that is to be duplicated.
+         * @post        A new identical copy of CustomQueue object is created.
+         * @author      Ong Zhong Yik
          */
         CustomQueue(const CustomQueue<T>& right) : data(right.data) {}
 
         /**
-         * @brief  Adds a new element to the back of the queue (First-In).
-         * @note   Directly calls CustomVector's push_back() method, allowing the queue to expand dynamically without ever getting "full".
-         * @author Ong Zhong Yik
+         * @brief         Adds a new element to the back of the queue (First-In).
+         * @details       Directly calls CustomVector's push_back() method, allowing the queue to expand dynamically without ever getting "full".
+         * @param element The data value of type T to be added to the back of the queue.
+         * @post          The element is successfully appended to the back of the queue, and the internal logical size increases by 1.
+         * @author        Ong Zhong Yik
          */
         void enqueue(T element) { data.push_back(element); }
 
         /**
-         * @brief  Removes the front element from the queue (First-Out).
-         * @note   Should call CustomVector's erase(0) method so all trailing elements automatically shift forward. Must throw an underflow_error if the queue is empty.
-         * @author Ong Zhong Yik
+         * @brief   Removes the front element from the queue.
+         * @details Call CustomVector's erase method so all trailing elements automatically shift forward. 
+         * @pre     Queue should not be empty.
+         * @throws  VMException if the queue is empty.
+         * @post    The element at the front of the queue is destroyed and removed, and all remaining elements are shifted forward, decreasing the size by 1.
+         * @author  Ong Zhong Yik
          */
         void dequeue();
 
         /**
          * @brief  Checks whether the queue is currently empty.
-         * @note   Returns true if the underlying CustomVector's size is 0.
+         * @note   The 'const' keyword guarantees that calling this state-check function will not alter any internal data members of the queue.
+         * @return Returns true if the underlying CustomVector's size is 0, false otherwise.
          * @author Ong Zhong Yik
          */
         bool isEmpty() const { return data.size() == 0; }
 
         /**
          * @brief  Retrieves the front element of the queue without removing it.
-         * @note   Should return the first element (index 0) of the CustomVector. Throws an underflow_error if the queue is empty.
+         * @note   The 'const' keyword ensures that peeking at the front element does not modify the queue's state or data.
+         * @pre    Queue should not be empty.
+         * @throws VMException if the queue is empty.
+         * @return Return the first element of the CustomVector. 
          * @author Ong Zhong Yik
          */
         T front() const;
 
         /**
-         * @brief  Copy Assignment Operator. Assigns the data of one queue to another.
-         * @note   Safely delegates the assignment logic and deep copy mechanism to CustomVector's assignment operator.
-         * @author Ong Zhong Yik
+         * @brief       Copy Assignment Operator. Assigns the data of one queue to another.
+         * @details     Safely delegates the assignment logic and deep copy mechanism to CustomVector's assignment operator.
+         * @note        The 'const' keyword prevents any accidental modification of the source queue during the assignment operation.
+         * @param right A constant reference to the source CustomQueue object providing the new data.
+         * @return      A reference to the updated CustomQueue object to support chained assignments.
+         * @author      Ong Zhong Yik
          */
         CustomQueue& operator=(const CustomQueue<T>& right);
 };
@@ -555,45 +629,28 @@ class Memory {
 // Contains registers, memory, PC, and executes instructions
 // holds data, keep track where the program is, manages temporary storage
 class CPU {
-private:
-    DataRegister R[8];     // R0 to R7
-    FlagRegister flags;       // Aggregated flags (0 or 1 signals)
-    Memory memory;            // Composed memory
+    private:
+        DataRegister R[8];     // R0 to R7
+        FlagRegister flags;       // Aggregated flags (0 or 1 signals)
+        Memory memory;            // Composed memory
+        unsigned char PC;         // Program Counter, remembers which line of the assembly program is reading (1 byte, starts at 0)
+        unsigned char SI;         // Stack Index, count of how many things piled up (1 byte, starts at 0)
+        CustomStack<signed char> systemStack; // Temporary store number
 
-    unsigned char PC;         // Program Counter, remembers which line of the assembly program is reading (1 byte, starts at 0)
-    unsigned char SI;         // Stack Index, count of how many things piled up (1 byte, starts at 0)
-
-    CustomStack<signed char> systemStack; // Temporary store number
-
-public:
-    CPU() : PC(0), SI(0) {} // sets the program counter and stack index to 0 when cpu is first created
-
-    // Getters to allow instructions to manipulate CPU state
-    DataRegister* getRegister(int index) { return &R[index]; } // returns pointer to a specific data register, pointer gives the runner the memory address of the pointer
-    FlagRegister* getFlags() { return &flags; } // returns pointer to flag registers so the runner can check or update them
-    Memory* getMemory() { return &memory; } // returns a pointer to the main memory so the runner can load or store data
-
-    CustomStack<signed char>& getSystemStack() {return systemStack;}
-
-    unsigned char getPC() const { return PC; } // return the current line the Program Counter is on, const prevent changes on PC value
-    void incrementPC() { PC++; } // runner calls this after finishing an instruction, move program counter forward by 1, cpu knows to move to next line
-
-    unsigned char getSI() const { return SI; } //return the current number of items piled in the stack
-    void incrementSI() { SI++; } // increases stack index by 1 when a new item is added to stack
-    void decrementSI() { SI--; } // decreases stack index by 1 when a new item is removed from stack
-
-    void pushToStack(signed char value) {
-        systemStack.push(value); // puts the data into the customstack
-        incrementSI(); //updates counter so the cpu knows
-    }
-
-    // removes the top value from stack and gives it back to caller, & modifies the variable that runner passed into function directly
-    signed char popFromStack() {
-        signed char peek = systemStack.peek();
-        systemStack.pop();
-        decrementSI();
-        return peek;
-    }
+    public:
+        CPU() : PC(0), SI(0) {} // sets the program counter and stack index to 0 when cpu is first created
+        // Getters to allow instructions to manipulate CPU state
+        DataRegister* getRegister(int index); // returns pointer to a specific data register, pointer gives the runner the memory address of the pointer
+        FlagRegister* getFlags() { return &flags; } // returns pointer to flag registers so the runner can check or update them
+        Memory* getMemory() { return &memory; } // returns a pointer to the main memory so the runner can load or store data
+        CustomStack<signed char>& getSystemStack() {return systemStack;}
+        unsigned char getPC() const { return PC; } // return the current line the Program Counter is on, const prevent changes on PC value
+        void incrementPC() { PC++; } // runner calls this after finishing an instruction, move program counter forward by 1, cpu knows to move to next line
+        unsigned char getSI() const { return SI; } //return the current number of items piled in the stack
+        void incrementSI() { SI++; } // increases stack index by 1 when a new item is added to stack
+        void decrementSI() { SI--; } // decreases stack index by 1 when a new item is removed from stack
+        void pushToStack(signed char value);
+        signed char popFromStack(); // removes the top value from stack and gives it back to caller, & modifies the variable that runner passed into function directly
 };
 
 // Abstract base class for all assembly commands
@@ -608,6 +665,7 @@ public:
     virtual ~Instruction() {}
     // Virtual polymorphism
     virtual void execute(CPU& cpu) = 0;
+    virtual const char* getCommand() const = 0;
 };
 
 // arithmethic instruction derived class
@@ -645,6 +703,7 @@ class ArithmeticInstruction : public Instruction {
          * @author Kong Zhun Rui
          */
         void execute(CPU& cpu) override;
+        const char* getCommand() const override { return ar.c_str(); }
 };
 
 // move instruction derived class
@@ -669,6 +728,7 @@ class MoveInstruction : public Instruction{
          * @author Kong Zhun Rui
          */
         void execute(CPU& cpu) override;
+        const char* getCommand() const override { return "MOV"; }
 };
 
 // input or display instruction derived class
@@ -693,6 +753,7 @@ class IOInstruction : public Instruction {
         * @author Kong Zhun Rui
         */
         void execute(CPU& cpu) override;
+        const char* getCommand() const override { return op.c_str(); }
 };
 
 // shift and rotate instruction derived class
@@ -709,6 +770,7 @@ class ShiftInstruction : public Instruction {
     public:
         ShiftInstruction(string operation, int idx, int shiftCount): op(operation), regI(idx), count(shiftCount) {} //shift and rotate instruction constructor
         void execute(CPU& cpu) override;
+        const char* getCommand() const override { return op.c_str(); }
 };
 //reset flags instruction derived class
 /**
@@ -722,6 +784,7 @@ class ResetFlagsInstruction : public Instruction {
     public:
         ResetFlagsInstruction(string flagName) : targetFlag(flagName){}
         void execute(CPU& cpu) override;
+        const char* getCommand() const override { return "RESET"; }
 };
 
 /**
@@ -754,13 +817,13 @@ class LoadStoreInstruction : public Instruction {
          * @details      Use when handling instruction with mode 1: LOAD <Register>, [<Address>] and mode 2: STORE <Register>, <Address>
          * @param m      Integer value represent mode of load or store instruction.
          * @param dRI    Integer value represent data register index
-         * @param memAdd Integer value represent memory address (index of array with 64 elements)
+         * @param memAdd Signed char value represent memory address (index of array with 64 elements)
          * @pre          m should be in range 1-3, dRI should be in range 0-7, memAdd should be in range 0-63
          * @throw        VMException if m smaller than 1 or larger than 3, dRI smaller than 0 or larger than 7, memAdd smaller than 0 larger than 63.
          * @post         Created a new LoadStoreInstruction object.
          * @author       Mun William
          */
-        LoadStoreInstruction(int m, int dRI, int memAdd);
+        LoadStoreInstruction(int m, int dRI, signed char memAdd);
 
         /**
          * @brief     Parameterized constructor. Constructs a new load or store instruction object.
@@ -785,6 +848,7 @@ class LoadStoreInstruction : public Instruction {
          */
         void execute(CPU& cpu) override;
 
+        const char* getCommand() const override { return (mode == 1) ? "LOAD" : "STORE"; }
 };
 
 /**
@@ -824,280 +888,38 @@ class StackInstruction : public Instruction {
          * @author    Mun William
          */
         void execute(CPU& cpu) override;
+
+        const char* getCommand() const override { return operation.c_str(); }
 };
 
 // Loads programs, decodes instructions, delegates execution to CPU
 class Runner {
-private:
-    CPU virtualMachine; // Composition, actual virtual machine that will do math and store data
-    CustomVector<Instruction*> program; // dynamic array vector that hold pointers to instructions
-    // uses polymorphism, holds generic instruction pointers, but they will point to specific types
+    private:
+        CPU virtualMachine; // Composition, actual virtual machine that will do math and store data
+        CustomVector<Instruction*> program; // dynamic array vector that hold pointers to instructions
+        // uses polymorphism, holds generic instruction pointers, but they will point to specific types
 
-    // helper function, checks if a line is empty or just spaces
-    bool isBlankLine(string dummy)
-    {
-        if (dummy.empty()) return true; // if there is zero character, return blank
-        for(int i=0; i < dummy.length(); i++) // look at every character in the string
-        {
-            if(dummy[i] != ' ' && dummy[i]!= '\t' && dummy[i]!= '\r' && dummy[i]!= '\n') // find anything that is not a space, tab or enter key, then not blank
-            return false;
-        }
-        return true; // if only found spaces or tabs, it is blank
-    }
+        bool isBlankLine(string dummy); // helper function, checks if a line is empty or just spaces
+        string format4(int num); // Helper function to pad numbers with leading zeroes (eg. 5 into 0005)
+        int numberReg(string dummy); // helper function, extracts the number from a register (eg. R1 becomes 1)
+        Instruction* handleMove(int reg, string value);
 
-    // Helper function to pad numbers with leading zeroes (eg. 5 into 0005)
-    string format4(int num) {
-        stringstream belt;
-        // setfill('0') tells it to use zeroes.
-        // setw(4) tells it to make sure the string is exactly 4 characters wide.
-        belt << setfill('0') << setw(4) << num;
-        return belt.str(); //  convert the stream back into a normal string
-    }
+        // acts as translator, the read text from file and figure whih instruction object to create
+        Instruction* MathAndLogic(const string& first, stringstream& rest);
+        Instruction* parseIOAndStack(const string& first, stringstream& rest);
+        Instruction* parseLoadStore(const string& first, stringstream& rest);
+        Instruction* ShiftAndReset(const string& first, stringstream& rest);
+        string buildCpuStateString(); // build the shared cpu state to prevent repetition
+        void decodeAndStore(string currentline); 
 
-    // helper function, extracts the number from a register (eg. R1 becomes 1)
-    int numberReg(string dummy)
-    {
-        if(dummy.empty()) return 0; // if zero character, returns 0
-        if(dummy[0] == 'R' || dummy[0] == 'r') // check if the first letter is an R or r
-        {
-            string justNumber = dummy.substr(1); // extract everything after the R (e.g. grab the 1 from R1)
-            return stoi(justNumber); // convert the string 1 into integer 1
-        }
-        return 0;
-    }
-
-    // acts as translator, the read text from file and figure whih instruction object to create
-    Instruction* MathAndLogic(const string& first, stringstream& rest)
-    {
-        string dest,value;
-
-        // if the command is increment or decrement, only uses 1 register
-        if (first == "INC" || first == "DEC") {
-            rest >> dest; // read the next word (eg. R1)
-            return new ArithmeticInstruction(first, numberReg(dest));
-        }
-
-        // if its not INC, DEC, ADD, SUB, MUL, DIV, or MOV, this function cant handle it
-        if (first != "ADD" && first != "SUB" && first != "MUL" && first != "DIV" && first != "MOV") return nullptr;
-
-        // for math and mov, read the next two words (destination and value)
-        rest >> dest >> value;
-
-        // clean variable 'dest' (remove the trailing comma)
-        if (dest.back() == ',') {
-            dest.pop_back();
-        }
-
-        int reg = numberReg(dest); // convert R1 to 1
-
-        // handle move instructions which have diff modes
-        if (first == "MOV") {
-            if (value.front() == '[') {
-                // Register indirect [R1], we are moving based on a memory address stored in a register
-                string inner = value.substr(1, value.length() - 2); // strip the brackets to get R1
-                return new MoveInstruction(3, reg, numberReg(inner));
-            }
-            else if (value[0] == 'R' || value[0] == 'r'){
-                // Register to register (eg. MOV R1, R2)
-                return new MoveInstruction(2, reg, numberReg(value));
-            }
-            // immediate to register (eg. MOV R1, 5)
-            return new MoveInstruction(1, reg, stoi(value));
-        }
-        // if wasnt a MOV, it must be basic math operating
-        // check if the second value is a register (starting with R or r)
-        if (value[0] == 'R' || value[0] == 'r'){
-            // if its a register (eg. add r1, r2)
-            return new ArithmeticInstruction(first, reg, numberReg(value), false);// means not immediate)
-        }
-        // it is an immediate number (eg. add r1, 6)
-        else {
-            return new ArithmeticInstruction(first, reg, stoi(value), true);} // means its immediate
-            // to be changed after zr implement
-    }
-
-    Instruction* MemAndIO(const string& first, stringstream& rest) {
-        string a,b;
-        // input from keyboard or display to screen
-        if (first == "INPUT" || first == "DISPLAY"){
-            rest >> a;
-            return new IOInstruction(first, numberReg(a));
-        }
-
-        // stack command
-        if (first == "PUSH" || first == "POP"){
-            rest >> a;
-            return new StackInstruction(first, numberReg(a), virtualMachine.getSystemStack());
-        }
-
-        // loading from memory into a register
-        if (first == "LOAD"){
-            rest >> a >> b;
-            if (a.back() == ',') {a.pop_back();} // clean comma
-
-            if (b.front() == '[') {
-            b = b.substr(1, b.length() -2); // clean bracket
-
-            // if loading from an address stored inside a register, eg. Load R1, [R2]
-            if (b[0] == 'R' || b[0] == 'r') {
-                return new MoveInstruction(3, numberReg(a), numberReg(b)); }
-
-            // loading direct from a direct memory number, (eg. load R1, 20)
-            return new LoadStoreInstruction(1, numberReg(a), stoi(b));
-            }
-        }
-
-        // storing from a register into a memory
-        if (first == "STORE"){
-            rest >> a >> b;
-            if (a.back() == ',') {a.pop_back();} // clean comma
-            
-            // if storing into an address pointed to by a register, eg. store R1, [R2]
-            if (b.front() == '['){
-                b = b.substr(1, b.length() - 2); // clean brackets
-                return new LoadStoreInstruction(3, numberReg(b), numberReg(a));
-            }
-            else if (a[0] == 'R' || a[0]== 'r') {
-            // storing directly into a specific memory slot (eg. store R3, 20), 20 is the memory address R3 is the register that holds the value to be stored
-            return new LoadStoreInstruction(2, numberReg(a), stoi(b));
-            }
-            // stores into memory slot (eg. store 20, R3), this also stores the value in register 3 to memory 20
-            else  {
-                return new LoadStoreInstruction(2, numberReg(b), stoi(a));
-            }
-        }
-        return nullptr; // return nothing if nothing matches this category
-    }
-
-    Instruction* ShiftAndReset(const string& first, stringstream& rest) {
-        string a,b;
-
-        // clearing the flags
-        if (first == "RESET"){
-            rest >> a;
-            return new ResetFlagsInstruction(a);
-        }
-
-        // if its not a shift or rotate command, exit early
-        if (first != "SHL" && first != "SHR" && first != "ROL" && first != "ROR") return nullptr;
-
-        rest >> a >> b;
-
-        if (a.back() == ','){a.pop_back();} //clean comma
-        int reg = numberReg(a); //which register to shift
-        int count = stoi(b); // how many times to shift it
-        return new ShiftInstruction(first, reg, count);
-    }
-
-public:
-    Runner() {}  // default constructor
-
-    // destructor to clean up dynamic allocated memory, prevent memory leak
-    ~Runner() 
-    {
-        for (int i = 0; i < program.size(); i++)
-        {delete program.at(i);}
-    }
-
-    // loads asm file, read it, translate into instructions
-    void loadProgram(const string& filename) {
-        // Read .asm file line by line
-        // Decode strings into Instruction objects
-        // Store in CustomVector
-        ifstream file(filename);
-        if(!file.is_open()){
-            cout << "Error: Could not open file" << filename << "\n";
-            exit(1); // crash if the file does not exist
-        }
-
-        //store into queue
-        CustomQueue<string> lineQueue;
-        string line;
-
-        // read every line from the file, and put it in a queue
-        while(getline(file,line))
-        {
-            if(isBlankLine(line)) continue; // skip empty lines
-            lineQueue.enqueue(line); // put the line back at the queue
-        }
-        file.close(); // close the file when done
-
-        // take lines out the queue one by one, translate them and put them into a vector
-        while(!lineQueue.isEmpty())
-        {
-            string currentLine = lineQueue.front();
-            lineQueue.front();
-
-            stringstream lineStream(currentLine); // turn the string into a stream to read word by word
-            string first;
-            lineStream >> first; // read the first word (eg. ADD)
-
-            // try to translate the instruction by passing it into our 3 parser functions, if the first cant handle it, then returns nullptr, so we try MemAndIO
-            Instruction* inst = MathAndLogic(first, lineStream);
-            if (!inst) inst = MemAndIO(first, lineStream);
-            if (!inst) inst = ShiftAndReset(first, lineStream);
-        
-            // if one of the parsers successfully created an instruction, save it
-            if (inst) program.push_back(inst); 
-            else cout << "Warning: Unrecognized command -> " << first << "\n";
-        }
-    }
-
-    // loops through the saved instructions and tells the CPU to perform them
-    void executeProgram() {
-        // try-catch blocks protect the program from crashing
-        try {
-            // loop through our vector of instructions from top to bottom
-            for (int i = 0; i < program.size(); i++)
-            {
-                // tell the specific instruction to execute itself on our virtual machine
-                program.at(i) ->execute(virtualMachine); // move the program counter forward by 1
-                virtualMachine.incrementPC(); // move the program counter forward by 1
-                dumpState(); // print the status of the machine after this step
-            }
-        }
-        // if an error was thrown inside execute(), catch it here and print a safe error message
-        catch(const VMException& e)
-        {
-            cout << "\n Error: " << e.getErrorMessage() << "\n Stopping";
-        }
-    }
-
-    // prints the exact current status of the CPU and Memory to the screen
-    void dumpState() {
-        cout << "#Begin#\n";
-
-        cout << "#Registers#";
-        for (int i = 0; i < 8; i++) {
-            // getRegister returns a pointer, use ->
-            cout << format4((int)virtualMachine.getRegister(i)->getValue()) << "#";
-        }
-        cout << "\n";
-
-        // print the status of the warning flags
-        FlagRegister* f = virtualMachine.getFlags();
-        cout << "#Flags#OF#" << f->getOF() << "#UF#" << f->getUF() << "#CF#" << f->getCF() << "#ZF#" << f->getZF() << "#\n";
-
-        // print the current line number the program is on
-        cout << "#PC#" << format4((int)virtualMachine.getPC()) << "#\n";
-
-        cout << "#Memory#\n";
-
-        // print the 64 memory bytes in a nice 8x8 grid
-        Memory* mem = virtualMachine.getMemory();
-        for (int row = 0; row < 8; row++) {
-            cout << "#";
-            for (int col = 0; col < 8; col++) {
-                // calculate the exact 1D index (0 to 63) using 2D row/col coordinates
-                int address = (row * 8) + col;
-                cout << format4((int)mem->read(address)) << "#";
-            }
-            cout << "\n"; // new line at the end of each row
-        }
-
-        cout << "#End#\n";
-        }
-    };
+    public:
+        Runner() {}  // default constructor
+        ~Runner(); // destructor to clean up dynamic allocated memory, prevent memory leak
+        void loadProgram(const string& filename); // loads asm file, read it, translate into instructions
+        void executeProgram(bool saveToFile = false, const string& outputFilename = "output.txt"); // loops through the saved instructions and tells the CPU to perform them
+        void dumpStateToScreen(); // screen output
+        void dumpStateToFile(ofstream& outFile); // file output
+};
 
 // ==========================================
 // Class Implementation
@@ -1136,7 +958,7 @@ template <typename T>
 void CustomVector<T>::pop_back()
 {
     if (current_size == 0) {
-        throw underflow_error("Vector is empty!");
+        throw LogicException("Trying pop_back on empty CustomVector."); ///< @note Modified by Mun William: Exception Handling
     }
     arr[current_size - 1].~T();
     // Logically remove it by shrinking the size
@@ -1147,7 +969,7 @@ template <typename T>
 T CustomVector<T>::at(int index) const
 {
     if (index < 0 || index >= current_size) {
-        throw out_of_range("Index out of bounds!");
+        throw LogicException("Index out of bounds in CustomVector."); ///< @note Modified by Mun William: Exception Handling
     }
     return arr[index];
 }
@@ -1156,7 +978,7 @@ template <typename T>
 const T& CustomVector<T>::operator[](int index) const
 {
     if (index < 0 || index >= current_size) {
-        throw out_of_range("Index out of bounds!");
+        throw LogicException("Index out of bounds in CustomVector."); ///< @note Modified by Mun William: Exception Handling
     }
     return arr[index];
 }
@@ -1165,7 +987,7 @@ template <typename T>
 void CustomVector<T>::erase(int index)
 {
     if (index < 0 || index >= current_size) {
-        throw out_of_range("Error: Index out of bounds!");
+        throw LogicException("Index out of bounds in CustomVector."); ///< @note Modified by Mun William: Exception Handling
     }
 
     arr[index].~T();
@@ -1180,7 +1002,7 @@ template <typename T>
 T& CustomVector<T>::operator[](int index)
 {
     if (index < 0 || index >= current_size) {
-        throw out_of_range("Index out of bounds!");
+        throw LogicException("Index out of bounds in CustomVector."); ///< @note Modified by Mun William: Exception Handling
     }
     return arr[index];
 }
@@ -1230,7 +1052,7 @@ template <typename T>
 void CustomStack<T>::pop()
 {
     if (isEmpty()) {
-        throw underflow_error("Stack Underflow! Cannot pop.");
+        throw LogicException("Stack underflow. Trying to pop empty CustomStack."); ///< @note Modified by Mun William: Exception Handling
     }
     data.pop_back();
 }
@@ -1239,7 +1061,7 @@ template <typename T>
 T CustomStack<T>::peek() const
 {
     if (isEmpty()) {
-        throw underflow_error("Stack is empty! Cannot peek.");
+        throw LogicException("Stack underflow. Trying to peek empty CustomStack."); ///< @note Modified by Mun William: Exception Handling
     }
     return data[data.size() - 1];
 }
@@ -1248,7 +1070,7 @@ template <typename T>
 void CustomQueue<T>::dequeue()
 {
     if (isEmpty()) {
-        throw underflow_error("Queue is empty!");
+        throw LogicException("Queue underflow. Trying to dequeue empty CustomQueue."); ///< @note Modified by Mun William: Exception Handling
     }
     data.erase(0);
 }
@@ -1257,7 +1079,7 @@ template <typename T>
 T CustomQueue<T>::front() const
 {
     if (isEmpty()) {
-        throw underflow_error("Queue is empty!");
+        throw LogicException("Queue underflow. Trying to front empty CustomQueue."); ///< @note Modified by Mun William: Exception Handling
     }
     // directly see the front
     return data[0];
@@ -1270,6 +1092,26 @@ CustomQueue<T> &CustomQueue<T>::operator=(const CustomQueue<T> &right)
         return *this;
     data = right.data;
     return *this;
+}
+
+void FlagRegister::flagArithmeticSetter(unsigned char oper1, unsigned char oper2, int result)
+{
+    setCF(checkCF(result));
+    setOF(checkOF(oper1, oper2, static_cast<unsigned char>(result)));
+    setUF(checkUF(oper1, oper2, static_cast<unsigned char>(result)));
+    setZF(checkZF(static_cast<signed char>(result)));
+}
+
+void FlagRegister::flagIOSetter(int input)
+{
+    setOF(input > 127);
+    setUF(input < -128);
+    setZF(input == 0);
+}
+
+void FlagRegister::flagLogicalSetter(unsigned char result)
+{
+    setZF(checkZF(static_cast<signed char>(result)));
 }
 
 Memory::Memory() // Default constructor
@@ -1300,18 +1142,20 @@ Memory& Memory::operator=(const Memory& other)
 
 signed char Memory::read(int address) const
 {
-    if (address >= 0 && address < 64)
-        return data[address];
-    else
-        throw VMException("Data cannot be displayed due to address out of bound.");
+    if(address < 0 || address > 63){
+        throw HardwareException("Address " + to_string(address) + " is invalid to read.");
+    } else {
+        return data[address];  
+    }
 }
 
 void Memory::write(int address, signed char value)
 {
-    if (address >= 0 && address < 64)
-        this->data[address] = value;
-    else
-        throw VMException("Data cannot be written due to address out of bound.");
+    if(address < 0 || address > 63){
+        throw HardwareException("Address " + to_string(address) + " is invalid to read.");
+    } else {
+        data[address] = value;  
+    }
 }
 
 void Memory::displayMemory()
@@ -1329,24 +1173,31 @@ void Memory::displayMemory()
     cout << endl;
 }
 
-void FlagRegister::flagArithmeticSetter(unsigned char oper1, unsigned char oper2, int result)
+DataRegister *CPU::getRegister(int index)
+{   
+    // Checks register index at here to prevent out of bound register index accessed by user. Otherwise it throws error if index is out of bound.
+    if(index < 0 || index > 7) ///< @note Added by Mun William: Exception Handling
+        throw HardwareException("Register index " + to_string(index) + " is not valid."); ///< @note Added by Mun William: Exception Handling
+
+    return &R[index]; 
+} 
+
+void CPU::pushToStack(signed char value)
 {
-    setCF(checkCF(result));
-    setOF(checkOF(oper1, oper2, static_cast<unsigned char>(result)));
-    setUF(checkUF(oper1, oper2, static_cast<unsigned char>(result)));
-    setZF(checkZF(static_cast<signed char>(result)));
+    systemStack.push(value); // puts the data into the customstack
+    incrementSI(); //updates counter so the cpu knows
 }
 
-void FlagRegister::flagIOSetter(int input)
+signed char CPU::popFromStack()
 {
-    setOF(input > 127);
-    setUF(input < -128);
-    setZF(input == 0);
-}
-
-void FlagRegister::flagLogicalSetter(unsigned char result)
-{
-    setZF(checkZF(static_cast<signed char>(result)));
+    try { ///< @note Added by Mun William: Exception Handling
+        signed char peek = systemStack.peek();
+        systemStack.pop();
+        decrementSI();
+        return peek;
+    } catch (LogicException& e) { ///< @note Added by Mun William: Exception Handling
+        throw HardwareException("Stack underflow. Trying to pop empty stack."); ///< @note Added by Mun William: Exception Handling
+    }
 }
 
 int ArithmeticInstruction::compute(int v1, int v2){
@@ -1372,7 +1223,7 @@ ArithmeticInstruction::ArithmeticInstruction(string operation, int dest): destRI
         sourceVal = 1;
         isImmediate = true;
     } else {
-        throw VMException("Error: Invalid operation syntax");
+        throw SyntaxException("Invalid arithmetic operation syntax"); ///< @note Modified by Mun William: Exception Handling
     }
 }
 
@@ -1429,9 +1280,9 @@ void IOInstruction::execute(CPU& cpu)
         flags->flagIOSetter(rawInput);
 
     } else if (op == "DISPLAY") { //check instruction is display command
-        cout << static_cast<int>(reg->getValue()) << endl;
+        cout << "R" << regI << "=" << static_cast<int>(reg->getValue()) << endl;
     } else if (op != "INPUT" && op != "DISPLAY") { //if not, throw an exception
-        throw VMException("Error: Invalid operation.");
+        throw SyntaxException("Invalid IO operation."); ///< @note Modified by Mun William: Exception Handling
     }
 }
 
@@ -1468,56 +1319,36 @@ void ResetFlagsInstruction::execute(CPU& cpu)
     else if (targetFlag == "UF") flags->setUF(false);
 }
 
-LoadStoreInstruction::LoadStoreInstruction(int m, int dRI, int memAdd)
+LoadStoreInstruction::LoadStoreInstruction(int m, int dRI, signed char memAdd)
 {
     addressRegisterIndex = -1;
+    dataRegisterIndex = dRI;
+    memoryAddress = static_cast<int>(memAdd); // Address out of bound will be handled by Memory class, so here we don't do checking first.
 
     if(m >= 1 && m <= 3){
         mode = m;
     } else {
-        throw VMException("Invalid LOAD or STORE instruction format.");
-    }
-
-    if(memAdd >= 0 && memAdd < 64){
-        memoryAddress = memAdd;
-    } else {
-        throw VMException("Memory address out of bound. Memory address only ranged from 0 to 63.");
-    }
-
-    if(dRI >= 0 && dRI < 8){
-        dataRegisterIndex = dRI;
-    } else {
-        throw VMException("Register index out of bound. Data register only ranged from R0 to R7.");
+        throw SyntaxException("Invalid LOAD or STORE instruction format.");
     }
 }
 
 LoadStoreInstruction::LoadStoreInstruction(int m, int dRI, int aRI)
 {
     memoryAddress = -1;
+    dataRegisterIndex = dRI;
+    addressRegisterIndex = aRI;
 
     if(m >= 1 && m <= 3){
         mode = m;
     } else {
-        throw VMException("Invalid LOAD or STORE instruction format.");
-    }
-
-    if(dRI >= 0 && dRI < 8){
-        dataRegisterIndex = dRI;
-    } else {
-        throw VMException("Register index out of bound. Data register only ranged from R0 to R7.");
-    }
-
-    if(aRI >= 0 && aRI < 8){
-        addressRegisterIndex = dRI;
-    } else {
-        throw VMException("Register index out of bound. Data register only ranged from R0 to R7.");
+        throw VMException("Invalid load or store operation.");
     }
 }
 
 void LoadStoreInstruction::execute(CPU &cpu)
 {
     DataRegister* datReg = cpu.getRegister(dataRegisterIndex);
-    DataRegister* addReg = cpu.getRegister(addressRegisterIndex);
+
     Memory* mem = cpu.getMemory();
 
     if(mode == 1){ // LOAD <Register>, [<Address>]
@@ -1525,26 +1356,22 @@ void LoadStoreInstruction::execute(CPU &cpu)
     } else if (mode == 2){ // STORE <Register>, <Address>
         mem->write(memoryAddress, datReg->getValue());
     } else if (mode == 3){ // STORE <Register>, [<Register>]
+        DataRegister* addReg = cpu.getRegister(addressRegisterIndex);
         mem->write(static_cast<int>(addReg->getValue()), datReg->getValue());
     } else {
-        throw VMException("Invalid LOAD or STORE instruction format."); // Prevent unexpected value passing into mode
+        throw SyntaxException("Invalid load or store operation."); // Prevent unexpected value passing into mode
     }
 }
 
 StackInstruction::StackInstruction(string op, int dRI, CustomStack<signed char> &sysSk): systemStack(sysSk)
 {
     systemStack = sysSk;
+    dataRegisterIndex = dRI;
 
     if(op == "PUSH" || op == "POP"){
         operation = op;
     } else {
-        throw VMException("Invalid stack instruction format.");
-    }
-
-    if(dRI >= 0 && dRI < 8){
-        dataRegisterIndex = dRI;
-    } else {
-        throw VMException("Register index out of bound. Data register only ranged from R0 to R7.");
+        throw SyntaxException("Invalid stack operation.");
     }
 }
 
@@ -1557,17 +1384,319 @@ void StackInstruction::execute(CPU& cpu)
     } else if (operation == "POP") {
         datReg->setValue(cpu.popFromStack());
     } else {
-        throw VMException("Invalid PUSH or POP operation."); // Prevent unexpected value passing into operation
+        throw SyntaxException("Invalid stack operation."); // Prevent unexpected value passing into operation
     }
 }
 
-// ==========================================
-// ENTRY POINT
-// ==========================================
+bool Runner::isBlankLine(string dummy)
+{
+    if (dummy.empty()) return true; // if there is zero character, return blank
+    for(int i=0; i < dummy.length(); i++) // look at every character in the string
+    {
+        if(dummy[i] != ' ' && dummy[i]!= '\t' && dummy[i]!= '\r' && dummy[i]!= '\n') // find anything that is not a space, tab or enter key, then not blank
+            return false;
+    }
+    return true; // if only found spaces or tabs, it is blank
+}
+
+string Runner::format4(int num)
+{
+    stringstream belt;
+    // setfill('0') tells it to use zeroes.
+    // setw(4) tells it to make sure the string is exactly 4 characters wide.
+    belt << setfill('0') << setw(4) << num;
+    return belt.str(); //  convert the stream back into a normal string
+}
+
+int Runner::numberReg(string dummy)
+{
+    if(dummy.empty()) return 0; // if zero character, returns 0
+    if(dummy[0] == 'R' || dummy[0] == 'r') // check if the first letter is an R or r
+    {
+        string justNumber = dummy.substr(1); // extract everything after the R (e.g. grab the 1 from R1)
+        return stoi(justNumber); // convert the string 1 into integer 1
+    }
+    return 0;
+}
+
+Instruction* Runner::handleMove(int reg, string value) {
+        if (value.front() == '[') {
+            // Register indirect [R1], we are moving based on a memory address stored in a register
+            string inner = value.substr(1, value.length() - 2); // strip the brackets to get R1
+            return new MoveInstruction(3, reg, numberReg(inner));
+        }
+        else if (value[0] == 'R' || value[0] == 'r'){
+            // Register to register (eg. MOV R1, R2)
+            return new MoveInstruction(2, reg, numberReg(value));
+        }
+        // immediate to register (eg. MOV R1, 5)
+        return new MoveInstruction(1, reg, stoi(value));
+    }
+
+Instruction* Runner::MathAndLogic(const string& first, stringstream& rest)
+{
+    string dest,value;
+
+    // if the command is increment or decrement, only uses 1 register
+    if (first == "INC" || first == "DEC") {
+        rest >> dest; // read the next word (eg. R1)
+        return new ArithmeticInstruction(first, numberReg(dest));
+    }
+
+    // if its not INC, DEC, ADD, SUB, MUL, DIV, or MOV, this function cant handle it
+    if (first != "ADD" && first != "SUB" && first != "MUL" && first != "DIV" && first != "MOV") return nullptr;
+
+    // for math and mov, read the next two words (destination and value)
+    rest >> dest >> value;
+
+    // clean variable 'dest' (remove the trailing comma)
+    if (dest.back() == ',') {
+        dest.pop_back();
+    }
+
+    int reg = numberReg(dest); // convert R1 to 1
+
+    // handle move instructions which have diff modes
+    if (first == "MOV") {
+        return handleMove(reg,value); }
+        
+    // if wasnt a MOV, it must be basic math operating
+    // check if the second value is a register (starting with R or r)
+    if (value[0] == 'R' || value[0] == 'r'){
+        // if its a register (eg. add r1, r2)
+        return new ArithmeticInstruction(first, reg, numberReg(value), false); } // means not immediate)
+    // it is an immediate number (eg. add r1, 6)
+    else {
+        return new ArithmeticInstruction(first, reg, stoi(value), true); } // means its immediate
+}
+
+Instruction* Runner::parseIOAndStack(const string& first, stringstream& rest)
+{
+    string a,b;
+    // input from keyboard or display to screen
+    if (first == "INPUT" || first == "DISPLAY"){
+        rest >> a;
+        return new IOInstruction(first, numberReg(a));
+    }
+
+    // stack command
+    if (first == "PUSH" || first == "POP"){
+        rest >> a;
+        return new StackInstruction(first, numberReg(a), virtualMachine.getSystemStack());
+    }
+    return nullptr;
+}
+
+Instruction* Runner::parseLoadStore(const string& first, stringstream& rest){
+    if (first != "LOAD" && first != "STORE") return nullptr; // exit early if not memory
+
+    string a, b;
+    
+    // loading from memory into a register
+    if (first == "LOAD"){
+        rest >> a >> b;
+        if (a.back() == ',') {a.pop_back();} // clean comma
+        if (b.front() == '[') {
+            b = b.substr(1, b.length() -2); // clean bracket
+            // if loading from an address stored inside a register, eg. Load R1, [R2]
+            if (b[0] == 'R' || b[0] == 'r') {
+                return new MoveInstruction(3, numberReg(a), numberReg(b)); }
+            // loading direct from a direct memory number, (eg. load R1, 20)
+            return new LoadStoreInstruction(1, numberReg(a), static_cast<signed char>(stoi(b)));
+        }
+    }
+
+    // storing from a register into a memory
+    if (first == "STORE"){
+        rest >> a >> b;
+        if (a.back() == ',') {a.pop_back();} // clean comma
+        // if storing into an address pointed to by a register, eg. store R1, [R2]
+        if (b.front() == '['){
+            b = b.substr(1, b.length() - 2); // clean brackets
+            return new LoadStoreInstruction(3, numberReg(a), numberReg(b)); }
+        else if (a[0] == 'R' || a[0]== 'r') {
+            // storing directly into a specific memory slot (eg. store R3, 20), 20 is the memory address R3 is the register that holds the value to be stored
+            return new LoadStoreInstruction(2, numberReg(a), static_cast<signed char>(stoi(b))); }
+        // stores into memory slot (eg. store 20, R3), this also stores the value in register 3 to memory 20
+        else  {
+            return new LoadStoreInstruction(2, numberReg(b), static_cast<signed char>(stoi(a))); }
+    }
+    return nullptr; // return nothing if nothing matches this category
+}
+
+Instruction* Runner::ShiftAndReset(const string& first, stringstream& rest)
+{
+    string a,b;
+
+    // clearing the flags
+    if (first == "RESET"){
+        rest >> a;
+        return new ResetFlagsInstruction(a);
+    }
+
+    // if its not a shift or rotate command, exit early
+    if (first != "SHL" && first != "SHR" && first != "ROL" && first != "ROR") return nullptr;
+
+    rest >> a >> b;
+
+    if (a.back() == ','){a.pop_back();} //clean comma
+    int reg = numberReg(a); //which register to shift
+    int count = stoi(b); // how many times to shift it
+    return new ShiftInstruction(first, reg, count);
+}
+
+string Runner::buildCpuStateString()
+{
+    stringstream out;
+    out << "#Begin#\n";
+        
+    out << "#Registers#";
+    for (int i = 0; i < 8; i++) {
+        out << format4((int)virtualMachine.getRegister(i)->getValue()) << "#";
+    }
+    out << "\n";
+
+    FlagRegister* f = virtualMachine.getFlags();
+    out << "#Flags#OF#" << f->getOF() << "#UF#" << f->getUF() << "#CF#" << f->getCF() << "#ZF#" << f->getZF() << "#\n";
+
+    out << "#PC#" << format4((int)virtualMachine.getPC()) << "#\n";
+        
+    return out.str();
+}
+
+Runner::~Runner()
+{
+    for (int i = 0; i < program.size(); i++)
+        {delete program.at(i);}
+}
+
+void Runner::decodeAndStore(string currentLine){
+    stringstream lineStream(currentLine); // turn the string into a stream to read word by word
+        string first;
+        lineStream >> first; // read the first word (eg. ADD)
+
+        // try to translate the instruction by passing it into our 3 parser functions, if the first cant handle it, then returns nullptr, so we try MemAndIO
+        Instruction* inst = MathAndLogic(first, lineStream);
+        if (!inst) inst = parseIOAndStack(first, lineStream);
+        if (!inst) inst = parseLoadStore(first, lineStream);
+        if (!inst) inst = ShiftAndReset(first, lineStream);
+        
+        // if one of the parsers successfully created an instruction, save it
+        if (inst) program.push_back(inst); 
+        else throw SyntaxException("Invalid syntax found: " + first);
+}
+
+void Runner::loadProgram(const string& filename)
+{
+    // Read .asm file line by line
+    // Decode strings into Instruction objects
+    // Store in CustomVector
+    ifstream file(filename);
+    if(!file.is_open()){
+        throw FileException("File is not found or cannot be opened.", filename); 
+    }
+
+    //store into queue
+    CustomQueue<string> lineQueue;
+    string line;
+
+    // read every line from the file, and put it in a queue
+    while(getline(file,line))
+    {
+        if(isBlankLine(line)) continue; // skip empty lines
+        lineQueue.enqueue(line); // put the line back at the queue
+    }
+    file.close(); // close the file when done
+
+    // take lines out the queue one by one, translate them and put them into a vector
+    try {
+        while(!lineQueue.isEmpty())
+        {
+            decodeAndStore(lineQueue.front());
+            lineQueue.dequeue();
+        }
+    } catch (VMException& e){
+        throw RunTimeCrashException(e.getErrorMessage());
+    }
+}
+
+void Runner::executeProgram(bool saveToFile, const string& outputFilename)
+{
+    ofstream outFile;
+    outFile.open(outputFilename);
+
+    // try-catch blocks protect the program from crashing
+    // try {
+    // loop through our vector of instructions from top to bottom
+    for (int i = 0; i < program.size(); i++)
+    {
+        try{
+            // tell the specific instruction to execute itself on our virtual machine
+            program.at(i) ->execute(virtualMachine); // move the program counter forward by 1
+            //dumpStateToScreen(); // @debug
+            virtualMachine.incrementPC(); // move the program counter forward by 1
+        } catch (VMException& e){
+            if(outFile.is_open()) {
+                outFile << "\n Stopping...";
+                outFile << "\n Command Caused Error: " << program.at(i)->getCommand();
+                outFile << "\n Reason: " << e.getErrorMessage() << endl;
+            }
+            throw RunTimeCrashException(e.getErrorMessage(), virtualMachine.getPC()+1, program.at(i)->getCommand());
+        }
+    }
+    dumpStateToScreen();
+    dumpStateToFile(outFile);
+    outFile.close();
+}
+
+void Runner::dumpStateToScreen()
+{
+    cout << buildCpuStateString();
+    virtualMachine.getMemory()-> displayMemory();
+    cout << "#End#\n";
+}
+
+void Runner::dumpStateToFile(ofstream& outFile)
+{
+    outFile << buildCpuStateString();
+
+    outFile << "#Memory#\n";
+    Memory* mem = virtualMachine.getMemory();
+    for (int row = 0; row < 8; row++) {
+        outFile << "#";
+        for (int col = 0; col < 8; col++) {
+            // Integer cast prevents ASCII symbols from ruining the file
+            outFile << format4((int)mem->read((row * 8) + col)) << "#";
+        }
+        outFile << "\n"; 
+    }
+
+    outFile << "#End#\n";
+}
+
 int main() {
     Runner interpreter;
-    // Load the program from file / Ask user to enter file name to be compiled
-    // Get file and compile the assembly code
-    // Print the VM's state after executed each line of assembly code
+    string filename;
+
+    try{
+        cout << "Enter the name of the assembly file you want to run (eg., test.asm): ";
+        cin >> filename;
+        
+        if(filename.substr(filename.length() - 4) != ".asm")
+            throw FileException("Invalid input file type- " + filename + ".\nMust be a .asm file.", filename);
+    } catch (VMException& e){
+        cerr << e.getErrorMessage() << endl;
+        return 1;
+    } 
+
+    try{
+        interpreter.loadProgram(filename);
+        interpreter.executeProgram();
+    } catch (VMException& e){
+        cerr << e.getErrorMessage() << endl;
+        return 1;
+    }
+
+    cout << "\n Program finished! Check output.txt for the full record \n";
     return 0;
 }
