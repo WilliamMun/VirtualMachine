@@ -653,7 +653,6 @@ class CPU {
         signed char popFromStack(); // removes the top value from stack and gives it back to caller, & modifies the variable that runner passed into function directly
 };
 
-// Abstract base class for all assembly commands
 /**
  * @brief    A base class representing a general-purpose instruction
  * @details  Instruction class allows operation such as resetting flag from register, load value of memory address to register and more.
@@ -668,7 +667,6 @@ public:
     virtual const char* getCommand() const = 0;
 };
 
-// arithmethic instruction derived class
 /**
  * @brief   Derived class from Instruction class that executes arithmetic instruction.
  * @details Perform runtime polymorphism. Executes ArithmeticInstruction::execute() when execute is called via base class pointer, but with derived class object.
@@ -680,16 +678,35 @@ class ArithmeticInstruction : public Instruction {
         int destRI; //destination register index
         int sourceVal; //source register index or immediate
         bool isImmediate; //true if sourceVal is immediate value, otherwise false
-        int compute(int v1, int v2); // compute the operation and return the value
+        /**
+        * @brief Computes the result of a binary arithmetic operation based on the current operation type.
+        * @param v1 Integer value representing the first operand, which is the destination register value.
+        * @param v2 Integer value representing the second operand, which is source register value or immediate literal.
+        * @throws LogicException if the operation is division and the divisor is zero.
+        * @throws VMException if the operation string 'ar' is not match with "ADD", "SUB", "MUL", "DIV".
+        * @return Integer representing the computed result of the mathematical operation.
+        * @note Double-check the operand order in the division block; it currently performs v2 / v1 instead of v1 / v2.
+        * @author Kong Zhun Rui
+        */
+        int compute(int v1, int v2);
     
     public:
-        ArithmeticInstruction(string operation, int dest, int source, bool immediate):ar(operation), destRI(dest), sourceVal(source), isImmediate(immediate){}; // creating an instruction, example: ADD,R1,R2
+        /**
+        * @brief Parameterized constructor. Constructs a binary arithmetic instruction object.
+        * @details Initializes a complete arithmetic statement by storing the operation type, the target destination register, and resolving whether the secondary operand is a literal immediate value or an external register index.
+        * @param operation String representing the specific mathematical operation. For example, "ADD", "SUB", and "DIV".
+        * @param dest Integer value representing the targeted destination data register index.
+        * @param source Integer value representing either a raw numeric literal or a source register index.
+        * @param immediate Boolean flag indicating if the source parameter is an immediate literal (true) or a register index (false).
+        * @post Created a new ArithmeticInstruction object initialized with the provided mathematical parameters.
+        * @author Kong Zhun Rui
+        */
+        ArithmeticInstruction(string operation, int dest, int source, bool immediate):ar(operation), destRI(dest), sourceVal(source), isImmediate(immediate){}; 
         /**
         * @brief Parameterized constructor. Constructs a unary arithmetic instruction object.
         * @details Translates "INC" and "DEC" into "ADD" and "SUB" with a literal factor of 1.
         * @param operation String representing the syntax keyword ("INC" or "DEC") of the operation.
         * @param dest Integer value representing the targeted data register index.
-        * @pre dest should be within the legal register bounds (typically 0-7).
         * @throws VMException if the operation string does not match "INC" or "DEC".
         * @post Created a new ArithmeticInstruction object initialized as a mapped binary operation with an immediate value of 1.
         * @author Kong Zhun Rui
@@ -706,7 +723,6 @@ class ArithmeticInstruction : public Instruction {
         const char* getCommand() const override { return ar.c_str(); }
 };
 
-// move instruction derived class
 /**
  * @brief Derived class from Instruction class that executes move instruction.
  * @details Perform runtime polymorphism. Executes MoveInstruction::execute() when execute is called via base class pointer, but with derived class object.
@@ -719,7 +735,16 @@ class MoveInstruction : public Instruction{
         int sourceI; //source index
     
     public:
-        MoveInstruction(int moveMode, int dest, int source): mode(moveMode), destI(dest), sourceI(source){} //move instruction constructor, example: 1, R1, R2
+        /**
+        * @brief Parameterized constructor. Constructs a new move instruction object.
+        * @param moveMode Integer value representing the data transfer mode (1: Immediate, 2: Register-Register, 3: Register-Indirect, 4: Register, [address]).
+        * @param dest Integer value representing the destination register index.
+        * @param source Integer value representing the source register index, memory address, or immediate literal.
+        * @pre moveMode should be in the range 1-4, and dest should be a valid register index (0-7).
+        * @post Created a new MoveInstruction object with initialized mode, destination, and source attributes.
+        * @author Kong Zhun Rui
+        */
+        MoveInstruction(int moveMode, int dest, int source): mode(moveMode), destI(dest), sourceI(source){} 
         /**
          * @brief Execute the move instruction.
          * @param cpu Reference to CPU object, that containing the memory, register.
@@ -731,7 +756,6 @@ class MoveInstruction : public Instruction{
         const char* getCommand() const override { return "MOV"; }
 };
 
-// input or display instruction derived class
 /**
  * @brief Derived class from Instruction class that executes input or output instruction.
  * @details Perform runtime polymorphism. Executes IOInstruction::execute() when execute is called via base class pointer, but with derived class object.
@@ -742,13 +766,19 @@ class IOInstruction : public Instruction {
         string op; //"INPUT" and "DISPLAY"
         int regI; //register array index
     public:
-        IOInstruction(string operation, int idx) : op(operation), regI(idx) {} // io instruction constructor
         /**
-        * @brief Executes an Input/Output instruction to either read a value from standard input or print a register value to standard output.
+        * @brief Parameterized constructor. Constructs a new Input/Output instruction object.
+        * @param operation String representing the specific I/O command type ("INPUT" or "DISPLAY").
+        * @param idx Integer value representing the targeted data register index.
+        * @post Created a new IOInstruction object with the operation type and register index initialized.
+        * @author Kong Zhun Rui
+        */
+        IOInstruction(string operation, int idx) : op(operation), regI(idx) {}
+        /**
+        * @brief Executes the instruction for input and output.
         * @param cpu Reference to CPU object, that containing the memory, register.
         * @note This is a polymorphic function. 'override' means IOInstruction::execute() function will override pure virtual function, Instruction::execute() in base class.
-        * @pre regI must be a valid register index within architectural limits (typically 0-7).
-        * @throws VMException if the operation string 'op' matches neither "INPUT" nor "DISPLAY".
+        * @throws SyntaxException if the operation string 'op' matches neither "INPUT" nor "DISPLAY".
         * @post If op is "INPUT", clears all CPU flags, prompts the user for an integer, stores the truncated 8-bit result in the designated register, and updates relevant status flags. If op is "DISPLAY", prints the current register value.
         * @author Kong Zhun Rui
         */
@@ -756,11 +786,10 @@ class IOInstruction : public Instruction {
         const char* getCommand() const override { return op.c_str(); }
 };
 
-// shift and rotate instruction derived class
 /**
- * @brief   Derived class from Instruction class that executes shift and rotate instruction.
+ * @brief Derived class from Instruction class that executes shift and rotate instruction.
  * @details Perform runtime polymorphism. Executes ShiftInstruction::execute() when execute is called via base class pointer, but with derived class object.
- * @author  Kong Zhun Rui
+ * @author Kong Zhun Rui
  */
 class ShiftInstruction : public Instruction {
     private:
@@ -768,21 +797,48 @@ class ShiftInstruction : public Instruction {
         int regI; //register array index
         int count; //raw number of bit positions to shift/rotate
     public:
-        ShiftInstruction(string operation, int idx, int shiftCount): op(operation), regI(idx), count(shiftCount) {} //shift and rotate instruction constructor
+        /**
+        * @brief Parameterized constructor. Constructs a new bitwise shift instruction object.
+        * @param operation String representing the specific shift and rotate direction ("SHL" for shift left, "SHR" for shift right, "ROL" for rotate left or "ROR" for rotate right).
+        * @param idx Integer value representing the targeted data register index.
+        * @param shiftCount Integer value representing how many bit positions to shift.
+        * @pre idx should be a valid data register index (typically 0-7), and shiftCount should be non-negative.
+        * @post Created a new ShiftInstruction object with the operation type, register index, and shift count initialized.
+        * @author Kong Zhun Rui
+        */
+        ShiftInstruction(string operation, int idx, int shiftCount): op(operation), regI(idx), count(shiftCount) {} 
+        /**
+        * @brief Executes shift and rotate instruction.
+        * @param cpu Reference to CPU object, that containing the memory, register.
+        * @note This is a polymorphic function. 'override' means ShiftInstruction::execute() function will override pure virtual function, Instruction::execute() in base class.
+        * @post Clears all CPU flags, shifts or rotates the 8-bit register value by the specified count, saves the updated 8-bit signed value back to the register, and sets the logical status flags.
+        * @author Kong Zhun Rui
+        */
         void execute(CPU& cpu) override;
         const char* getCommand() const override { return op.c_str(); }
 };
-//reset flags instruction derived class
 /**
- * @brief   Derived class from Instruction class that executes reset target flag instruction.
+ * @brief Derived class from Instruction class that executes reset target flag instruction.
  * @details Perform runtime polymorphism. Executes ResetFlagsInstruction::execute() when execute is called via base class pointer, but with derived class object.
- * @author  Kong Zhun Rui
+ * @author Kong Zhun Rui
  */
 class ResetFlagsInstruction : public Instruction {
     private:
         string targetFlag; //cf, of, uf, zf
     public:
+        /**
+        * @brief Parameterized constructor. Constructs a new clear-flag instruction object.
+        * @param flagName String representing the specific CPU condition flag to reset. For example, "ZF", "CF", or "UF".
+        * @post Created a new ResetFlagsInstruction object with the targeted status flag name initialized.
+        * @author Kong Zhun Rui
+        */
         ResetFlagsInstruction(string flagName) : targetFlag(flagName){}
+        /**
+        * @brief Executes the reset flag instruction to clear the flag status.
+        * @param cpu Reference to CPU object, that containing the memory, register.
+        * @post Clears the specific status flag, which is"CF", "ZF", "OF", or "UF" to match the targetFlag property to false.
+        * @author Kong Zhun Rui
+        */
         void execute(CPU& cpu) override;
         const char* getCommand() const override { return "RESET"; }
 };
