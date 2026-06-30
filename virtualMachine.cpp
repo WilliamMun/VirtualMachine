@@ -689,7 +689,7 @@ class MoveInstruction : public Instruction{
     public:
         MoveInstruction(int moveMode, int dest, int source): mode(moveMode), destI(dest), sourceI(source){} //move instruction constructor, example: 1, R1, R2
         void execute(CPU& cpu) override;
-        const char* getCommand() const override { return "MOV"; }
+        const char* getCommand() const override { return (mode == 4) ? "LOAD" : "MOV"; }
 };
 
 // input or display instruction derived class
@@ -1195,10 +1195,7 @@ void MoveInstruction::execute(CPU& cpu)
     } else if (mode == 2){ // MOV register, register
         cpu.getRegister(destI)->setValue(cpu.getRegister(sourceI)->getValue());
     } else if (mode == 3 || mode == 4){ // MOV register, [register] or LOAD register, [address] 
-        int address; // FIXME: mode == 4 can be deleted cuz LOAD qianxian can just set it as mode 3 too. Modify a bit for this block
-        if (mode == 3){
-            address = cpu.getRegister(sourceI)->getValue(); //get address stored inside the register
-        }
+        int address = cpu.getRegister(sourceI)->getValue(); //get address stored inside the register
         int dataFromMemory = memory->read(address); //fetch data from that memory address
         cpu.getRegister(destI)->setValue(dataFromMemory); // store it in destination register
     }
@@ -1440,7 +1437,7 @@ Instruction* Runner::parseLoadStore(const string& first, stringstream& rest){
             b = b.substr(1, b.length() -2); // clean bracket
             // if loading from an address stored inside a register, eg. Load R1, [R2]
             if (b[0] == 'R' || b[0] == 'r') {
-                return new MoveInstruction(3, numberReg(a), numberReg(b)); }
+                return new MoveInstruction(4, numberReg(a), numberReg(b)); }
             // loading direct from a direct memory number, (eg. load R1, 20)
             return new LoadStoreInstruction(1, numberReg(a), static_cast<signed char>(stoi(b)));
         }
@@ -1573,7 +1570,7 @@ void Runner::executeProgram(bool saveToFile, const string& outputFilename)
         try{
             // tell the specific instruction to execute itself on our virtual machine
             program.at(i) ->execute(virtualMachine); // move the program counter forward by 1
-            //dumpStateToScreen(); // @debug
+            dumpStateToScreen(); // @debug
             virtualMachine.incrementPC(); // move the program counter forward by 1
         } catch (VMException& e){
             if(outFile.is_open()) {
