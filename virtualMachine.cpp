@@ -597,6 +597,11 @@ public:
 };
 
 // Abstract base class for all assembly commands
+/**
+ * @brief    A base class representing a general-purpose instruction
+ * @details  Instruction class allows operation such as resetting flag from register, load value of memory address to register and more.
+ * @author   Kong Zhun Rui
+ */
 class Instruction {
 public:
     Instruction() = default;
@@ -606,6 +611,11 @@ public:
 };
 
 // arithmethic instruction derived class
+/**
+ * @brief   Derived class from Instruction class that executes arithmetic instruction.
+ * @details Perform runtime polymorphism. Executes ArithmeticInstruction::execute() when execute is called via base class pointer, but with derived class object.
+ * @author  Kong Zhun Rui
+ */
 class ArithmeticInstruction : public Instruction {
     private:
         string ar; //"ADD", "SUB", "MUL", "DIV"
@@ -616,11 +626,33 @@ class ArithmeticInstruction : public Instruction {
     
     public:
         ArithmeticInstruction(string operation, int dest, int source, bool immediate):ar(operation), destRI(dest), sourceVal(source), isImmediate(immediate){}; // creating an instruction, example: ADD,R1,R2
+        /**
+        * @brief Parameterized constructor. Constructs a unary arithmetic instruction object.
+        * @details Translates "INC" and "DEC" into "ADD" and "SUB" with a literal factor of 1.
+        * @param operation String representing the syntax keyword ("INC" or "DEC") of the operation.
+        * @param dest Integer value representing the targeted data register index.
+        * @pre dest should be within the legal register bounds (typically 0-7).
+        * @throws VMException if the operation string does not match "INC" or "DEC".
+        * @post Created a new ArithmeticInstruction object initialized as a mapped binary operation with an immediate value of 1.
+        * @author Kong Zhun Rui
+        */
         ArithmeticInstruction(string operation, int dest); 
+        /**
+         * @brief Execute the arithmetic instruction.
+         * @param cpu Reference to CPU object, that containing the memory, register.
+         * @note This is a polymorphic function. 'override' means ArithmeticInstruction::execute() function will override pure virtual function, Instruction::execute() in base class.
+         * @post Execute the respective instruction, resetting flag status, retrieving 2 operand, computing the result, update CPU flag based on outcome, and save the final truncated 8-bit result back into the destination register.
+         * @author Kong Zhun Rui
+         */
         void execute(CPU& cpu) override;
 };
 
 // move instruction derived class
+/**
+ * @brief Derived class from Instruction class that executes move instruction.
+ * @details Perform runtime polymorphism. Executes MoveInstruction::execute() when execute is called via base class pointer, but with derived class object.
+ * @author Kong Zhun Rui
+ */
 class MoveInstruction : public Instruction{
     private:
         int mode; // 1: Immediate, 2: Register-Register, 3: Register-Indirect
@@ -629,20 +661,46 @@ class MoveInstruction : public Instruction{
     
     public:
         MoveInstruction(int moveMode, int dest, int source): mode(moveMode), destI(dest), sourceI(source){} //move instruction constructor, example: 1, R1, R2
+        /**
+         * @brief Execute the move instruction.
+         * @param cpu Reference to CPU object, that containing the memory, register.
+         * @note This is a polymorphic function. 'override' means MoveInstruction::execute() function will override pure virtual function, Instruction::execute() in base class.
+         * @post Execute the respective instruction, either loading a literal value to destination register, copy another value from register, or read data from memory address stored in register.
+         * @author Kong Zhun Rui
+         */
         void execute(CPU& cpu) override;
 };
 
 // input or display instruction derived class
+/**
+ * @brief Derived class from Instruction class that executes input or output instruction.
+ * @details Perform runtime polymorphism. Executes IOInstruction::execute() when execute is called via base class pointer, but with derived class object.
+ * @author Kong Zhun Rui
+ */
 class IOInstruction : public Instruction {
     private:
         string op; //"INPUT" and "DISPLAY"
         int regI; //register array index
     public:
-        IOInstruction(string operation, int idx) : op(operation), regI(idx) {} // ioi instruction constructor
+        IOInstruction(string operation, int idx) : op(operation), regI(idx) {} // io instruction constructor
+        /**
+        * @brief Executes an Input/Output instruction to either read a value from standard input or print a register value to standard output.
+        * @param cpu Reference to CPU object, that containing the memory, register.
+        * @note This is a polymorphic function. 'override' means IOInstruction::execute() function will override pure virtual function, Instruction::execute() in base class.
+        * @pre regI must be a valid register index within architectural limits (typically 0-7).
+        * @throws VMException if the operation string 'op' matches neither "INPUT" nor "DISPLAY".
+        * @post If op is "INPUT", clears all CPU flags, prompts the user for an integer, stores the truncated 8-bit result in the designated register, and updates relevant status flags. If op is "DISPLAY", prints the current register value.
+        * @author Kong Zhun Rui
+        */
         void execute(CPU& cpu) override;
 };
 
 // shift and rotate instruction derived class
+/**
+ * @brief   Derived class from Instruction class that executes shift and rotate instruction.
+ * @details Perform runtime polymorphism. Executes ShiftInstruction::execute() when execute is called via base class pointer, but with derived class object.
+ * @author  Kong Zhun Rui
+ */
 class ShiftInstruction : public Instruction {
     private:
         string op; //"SHL" "SHR" "ROR" "ROL"
@@ -652,7 +710,12 @@ class ShiftInstruction : public Instruction {
         ShiftInstruction(string operation, int idx, int shiftCount): op(operation), regI(idx), count(shiftCount) {} //shift and rotate instruction constructor
         void execute(CPU& cpu) override;
 };
-
+//reset flags instruction derived class
+/**
+ * @brief   Derived class from Instruction class that executes reset target flag instruction.
+ * @details Perform runtime polymorphism. Executes ResetFlagsInstruction::execute() when execute is called via base class pointer, but with derived class object.
+ * @author  Kong Zhun Rui
+ */
 class ResetFlagsInstruction : public Instruction {
     private:
         string targetFlag; //cf, of, uf, zf
@@ -1291,8 +1354,8 @@ int ArithmeticInstruction::compute(int v1, int v2){
     if (ar == "SUB") return v1 - v2;
     if (ar == "MUL") return v1 * v2;
     if (ar == "DIV") {
-        if (v2 == 0) throw VMException("Error: Division by 0."); // throw exception when v1 is divided by 0
-        return v1 / v2;
+        if (v1 == 0) throw VMException("Error: Division by 0."); // throw exception when v1 is divided by 0
+        return v2 / v1;
     }
     if (ar != "ADD" && ar != "SUB" && ar != "MUL" && ar != "DIV") throw VMException ("Error: Invalid operation."); // throw exception when operation invalid
     return 0;
@@ -1344,10 +1407,7 @@ void MoveInstruction::execute(CPU& cpu)
     } else if (mode == 2){ // MOV register, register
         cpu.getRegister(destI)->setValue(cpu.getRegister(sourceI)->getValue());
     } else if (mode == 3 || mode == 4){ // MOV register, [register] or LOAD register, [address] 
-        int address; // FIXME: mode == 4 can be deleted cuz LOAD qianxian can just set it as mode 3 too. Modify a bit for this block
-        if (mode == 3){
-            address = cpu.getRegister(sourceI)->getValue(); //get address stored inside the register
-        }
+        int address = cpu.getRegister(sourceI)->getValue(); //get address stored inside the register
         int dataFromMemory = memory->read(address); //fetch data from that memory address
         cpu.getRegister(destI)->setValue(dataFromMemory); // store it in destination register
     }
