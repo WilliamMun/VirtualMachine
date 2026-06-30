@@ -916,7 +916,7 @@ class Runner {
         Runner() {}  // default constructor
         ~Runner(); // destructor to clean up dynamic allocated memory, prevent memory leak
         void loadProgram(const string& filename); // loads asm file, read it, translate into instructions
-        void executeProgram(bool saveToFile = false, const string& outputFilename = "output.txt"); // loops through the saved instructions and tells the CPU to perform them
+        void executeProgram(const string& outputFilename = "output.txt"); // loops through the saved instructions and tells the CPU to perform them
         void dumpStateToScreen(); // screen output
         void dumpStateToFile(ofstream& outFile); // file output
 };
@@ -1534,6 +1534,7 @@ Instruction* Runner::parseLoadStore(const string& first, stringstream& rest){
         else  {
             return new LoadStoreInstruction(2, numberReg(b), static_cast<signed char>(stoi(a))); }
     }
+    return nullptr;
 }
 
 Instruction* Runner::ShiftAndReset(const string& first, stringstream& rest) {
@@ -1641,7 +1642,7 @@ void Runner::loadProgram(const string& filename)
     }
 }
 
-void Runner::executeProgram(bool saveToFile, const string& outputFilename)
+void Runner::executeProgram(const string& outputFilename)
 {
     ofstream outFile;
     outFile.open(outputFilename);
@@ -1709,10 +1710,15 @@ int main() {
         cerr << e.getErrorMessage() << endl;
         return 1;
     } 
+    
+    string baseName = filename.substr(0, filename.length() - 4); 
+    
+    // build the new string
+    string outName = "output - " + baseName + ".txt";
 
     try{
         interpreter.loadProgram(filename);
-        interpreter.executeProgram();
+        interpreter.executeProgram(outName);
     } catch (VMException& e){
         cerr << e.getErrorMessage() << endl;
         return 1;
