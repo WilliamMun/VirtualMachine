@@ -3,6 +3,7 @@
 #include <iomanip>
 #include <sstream>
 #include <fstream>
+#include <cctype>
 using namespace std;
 
 class VMException {
@@ -1637,7 +1638,12 @@ void Runner::loadProgram(const string& filename)
     try {
         while(!lineQueue.isEmpty())
         {
-            decodeAndStore(lineQueue.front());
+            string currentLine = lineQueue.front();
+
+            // cast all uppercase
+            for (char &c : currentLine) c = toupper(c);
+
+            decodeAndStore(currentLine);
             lineQueue.dequeue();
         }
     } catch (VMException& e){
