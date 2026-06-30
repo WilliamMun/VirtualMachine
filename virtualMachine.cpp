@@ -18,7 +18,7 @@ class FileException : public VMException {
     private:
         string filename;
     public: 
-        FileException(const string& fn, const string& msg) : VMException("FILE ERROR- " + msg), filename(fn) {}
+        FileException(const string& fn, const string& msg) : VMException("FILE ERROR- " + msg + "\nFATAL FILE- " + fn), filename(fn) {}
         const string& getFilename() const { return filename; }
 };
 
@@ -1596,7 +1596,7 @@ void Runner::loadProgram(const string& filename)
     // Store in CustomVector
     ifstream file(filename);
     if(!file.is_open()){
-        throw FileException("File is not found or cannot be opened.", filename); 
+        throw FileException(filename, "File is not found or cannot be opened."); 
     }
 
     //store into queue
@@ -1686,7 +1686,7 @@ int main() {
         cin >> filename;
         
         if(filename.substr(filename.length() - 4) != ".asm")
-            throw FileException("Invalid input file type- " + filename + ".\nMust be a .asm file.", filename);
+            throw FileException(filename, "Invalid input file type- " + filename + ".\nMust be a .asm file.");
     } catch (VMException& e){
         cerr << e.getErrorMessage() << endl;
         return 1;
