@@ -1453,6 +1453,7 @@ Instruction* Runner::MathAndLogic(const string& first, stringstream& rest) {
     if (dest.empty()) throw SyntaxException("Missing operands for command: " + first);
     
     if (value.empty()) {
+        if (dest.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + first + " " + dest);
         if (dest.back() == ',') throw SyntaxException("Missing value: " + first + " " + dest);
         throw SyntaxException("Missing space after comma: " + first + " " + rest.str());
     }
@@ -1503,6 +1504,7 @@ Instruction* Runner::parseLoadStore(const string& first, stringstream& rest){
 
     if (a.empty()) throw SyntaxException("Missing operands for command: " + first);
     if (b.empty()) {
+        if (a.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + first + " " + a);
         if (a.back() == ',') throw SyntaxException("Missing value operand for command: " + first);
         else throw SyntaxException("Missing space after comma in: " + first + " " + rest.str()); }
     if (a.back() != ',') throw SyntaxException("Missing comma after first operand in: " + first + " " + a + " " + b); 
@@ -1553,6 +1555,7 @@ Instruction* Runner::ShiftAndReset(const string& first, stringstream& rest) {
     rest >> b;
 
     if (b.empty()) {
+        if (a.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + first + " " + a);
         if (a.back() == ',') throw SyntaxException("Missing value: " + first + " " + a);
         throw SyntaxException("Missing space after comma in: " + first + " " + rest.str());}
     if (a.back() != ',') throw SyntaxException("Missing comma: " + first + " " + a + " " + b);
