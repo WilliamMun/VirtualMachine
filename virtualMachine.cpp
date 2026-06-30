@@ -3,6 +3,7 @@
 #include <iomanip>
 #include <sstream>
 #include <fstream>
+#include <cctype>
 using namespace std;
 
 /**
@@ -1118,7 +1119,7 @@ class Runner {
         Runner() {}  // default constructor
         ~Runner(); // destructor to clean up dynamic allocated memory, prevent memory leak
         void loadProgram(const string& filename); // loads asm file, read it, translate into instructions
-        void executeProgram(bool saveToFile = false, const string& outputFilename = "output.txt"); // loops through the saved instructions and tells the CPU to perform them
+        void executeProgram(const string& outputFilename = "output.txt"); // loops through the saved instructions and tells the CPU to perform them
         void dumpStateToScreen(); // screen output
         void dumpStateToFile(ofstream& outFile); // file output
 };
@@ -1638,26 +1639,34 @@ Instruction* Runner::handleMove(int reg, string value) {
         return new MoveInstruction(1, reg, stoi(value));
     }
 
-Instruction* Runner::MathAndLogic(const string& first, stringstream& rest)
-{
-    string dest,value;
+Instruction* Runner::MathAndLogic(const string& first, stringstream& rest) {
+    // filter out commands this function doesn't handle
+    if (first != "INC" && first != "DEC" && first != "ADD" && first != "SUB" && first != "MUL" && first != "DIV" && first != "MOV") return nullptr;
 
+    string dest,value;
+    
     // if the command is increment or decrement, only uses 1 register
     if (first == "INC" || first == "DEC") {
         rest >> dest; // read the next word (eg. R1)
+        if (dest.empty()) throw SyntaxException("Missing register for: ");
+        if (dest.back() == ',') throw SyntaxException("Unexpected comma in: " + dest);
         return new ArithmeticInstruction(first, numberReg(dest));
     }
-
-    // if its not INC, DEC, ADD, SUB, MUL, DIV, or MOV, this function cant handle it
-    if (first != "ADD" && first != "SUB" && first != "MUL" && first != "DIV" && first != "MOV") return nullptr;
 
     // for math and mov, read the next two words (destination and value)
     rest >> dest >> value;
 
-    // clean variable 'dest' (remove the trailing comma)
-    if (dest.back() == ',') {
-        dest.pop_back();
+    if (dest.empty()) throw SyntaxException("Missing operands for command: ");
+    
+    if (value.empty()) {
+        if (dest.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + dest);
+        if (dest.back() == ',') throw SyntaxException("Missing value: " + dest);
+        throw SyntaxException("Missing space after comma: " + rest.str());
     }
+    if (dest.back() != ',') throw SyntaxException("Missing comma: " + dest + " " + value);
+
+    // clean variable 'dest' (remove the trailing comma)
+    dest.pop_back();
 
     int reg = numberReg(dest); // convert R1 to 1
 
@@ -1675,46 +1684,53 @@ Instruction* Runner::MathAndLogic(const string& first, stringstream& rest)
         return new ArithmeticInstruction(first, reg, stoi(value), true); } // means its immediate
 }
 
-Instruction* Runner::parseIOAndStack(const string& first, stringstream& rest)
-{
-    string a,b;
+Instruction* Runner::parseIOAndStack(const string& first, stringstream& rest) {
+    if (first != "INPUT" && first != "DISPLAY" && first != "PUSH" && first != "POP") return nullptr; 
+
+    string a;
+
+    rest >> a;
+
+    if (a.empty()) throw SyntaxException("Missing register operand for command: ");
+
+    if (a.back() == ',') throw SyntaxException("Unexpected comma after register in: " + a);
+
     // input from keyboard or display to screen
     if (first == "INPUT" || first == "DISPLAY"){
-        rest >> a;
-        return new IOInstruction(first, numberReg(a));
-    }
-
-    // stack command
-    if (first == "PUSH" || first == "POP"){
-        rest >> a;
-        return new StackInstruction(first, numberReg(a), virtualMachine.getSystemStack());
-    }
-    return nullptr;
+        return new IOInstruction(first, numberReg(a));}
+    else {
+        return new StackInstruction(first, numberReg(a), virtualMachine.getSystemStack());}
 }
 
 Instruction* Runner::parseLoadStore(const string& first, stringstream& rest){
     if (first != "LOAD" && first != "STORE") return nullptr; // exit early if not memory
 
     string a, b;
-    
+    rest >> a >> b;
+
+    if (a.empty()) throw SyntaxException("Missing operands for command: ");
+    if (b.empty()) {
+        if (a.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + a);
+        if (a.back() == ',') throw SyntaxException("Missing value operand for command: ");
+        else throw SyntaxException("Missing space after comma in: " + rest.str()); }
+    if (a.back() != ',') throw SyntaxException("Missing comma after first operand in: " + a + " " + b); 
+     
+    a.pop_back();
+
     // loading from memory into a register
     if (first == "LOAD"){
-        rest >> a >> b;
-        if (a.back() == ',') {a.pop_back();} // clean comma
         if (b.front() == '[') {
             b = b.substr(1, b.length() -2); // clean bracket
             // if loading from an address stored inside a register, eg. Load R1, [R2]
-            if (b[0] == 'R' || b[0] == 'r') {
-                return new MoveInstruction(4, numberReg(a), numberReg(b)); }
-            // loading direct from a direct memory number, (eg. load R1, 20)
+            if (b[0] == 'R' || b[0] == 'r') return new LoadStoreInstruction(1, numberReg(a), numberReg(b));
+
+            // loading direct from a direct memory number, (eg. load R1, [20])
             return new LoadStoreInstruction(1, numberReg(a), static_cast<signed char>(stoi(b)));
         }
     }
 
     // storing from a register into a memory
     if (first == "STORE"){
-        rest >> a >> b;
-        if (a.back() == ',') {a.pop_back();} // clean comma
         // if storing into an address pointed to by a register, eg. store R1, [R2]
         if (b.front() == '['){
             b = b.substr(1, b.length() - 2); // clean brackets
@@ -1726,28 +1742,33 @@ Instruction* Runner::parseLoadStore(const string& first, stringstream& rest){
         else  {
             return new LoadStoreInstruction(2, numberReg(b), static_cast<signed char>(stoi(a))); }
     }
-    return nullptr; // return nothing if nothing matches this category
+    return nullptr;
 }
 
-Instruction* Runner::ShiftAndReset(const string& first, stringstream& rest)
-{
+Instruction* Runner::ShiftAndReset(const string& first, stringstream& rest) {
+    if (first != "RESET" && first != "SHL" && first != "SHR" && first != "ROL" && first != "ROR") return nullptr;
+
     string a,b;
+    rest >> a;
+    if (a.empty()) throw SyntaxException("Missing operands for command: ");
 
     // clearing the flags
     if (first == "RESET"){
-        rest >> a;
+    if (a.back() == ',') throw SyntaxException("Unexpected comma in RESET: " + a);
         return new ResetFlagsInstruction(a);
     }
 
-    // if its not a shift or rotate command, exit early
-    if (first != "SHL" && first != "SHR" && first != "ROL" && first != "ROR") return nullptr;
+    rest >> b;
 
-    rest >> a >> b;
+    if (b.empty()) {
+        if (a.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + a);
+        if (a.back() == ',') throw SyntaxException("Missing value: " + a);
+        throw SyntaxException("Missing space after comma in: " + rest.str());}
+    if (a.back() != ',') throw SyntaxException("Missing comma: " + a + " " + b);
 
-    if (a.back() == ','){a.pop_back();} //clean comma
-    int reg = numberReg(a); //which register to shift
-    int count = stoi(b); // how many times to shift it
-    return new ShiftInstruction(first, reg, count);
+    a.pop_back();
+
+    return new ShiftInstruction(first, numberReg(a), stoi(b));
 }
 
 string Runner::buildCpuStateString()
@@ -1787,7 +1808,12 @@ void Runner::decodeAndStore(string currentLine){
         if (!inst) inst = ShiftAndReset(first, lineStream);
         
         // if one of the parsers successfully created an instruction, save it
-        if (inst) program.push_back(inst); 
+        if (inst) {
+            // --- NEW STRICT CHECK: Prevent multiple commands on one line ---
+            string extraGarbage;
+            if (lineStream >> extraGarbage) {
+            throw SyntaxException("Trailing characters or multiple instructions on one line: " + extraGarbage); }
+            program.push_back(inst); }
         else throw SyntaxException("Invalid syntax found: " + first);
 }
 
@@ -1817,7 +1843,12 @@ void Runner::loadProgram(const string& filename)
     try {
         while(!lineQueue.isEmpty())
         {
-            decodeAndStore(lineQueue.front());
+            string currentLine = lineQueue.front();
+
+            // cast all uppercase
+            for (char &c : currentLine) c = toupper(c);
+
+            decodeAndStore(currentLine);
             lineQueue.dequeue();
         }
     } catch (VMException& e){
@@ -1825,7 +1856,7 @@ void Runner::loadProgram(const string& filename)
     }
 }
 
-void Runner::executeProgram(bool saveToFile, const string& outputFilename)
+void Runner::executeProgram(const string& outputFilename)
 {
     ofstream outFile;
     outFile.open(outputFilename);
@@ -1893,10 +1924,15 @@ int main() {
         cerr << e.getErrorMessage() << endl;
         return 1;
     } 
+    
+    string baseName = filename.substr(0, filename.length() - 4); 
+    
+    // build the new string
+    string outName = "output - " + baseName + ".txt";
 
     try{
         interpreter.loadProgram(filename);
-        interpreter.executeProgram();
+        interpreter.executeProgram(outName);
     } catch (VMException& e){
         cerr << e.getErrorMessage() << endl;
         return 1;
