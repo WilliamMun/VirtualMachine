@@ -18,7 +18,7 @@ class FileException : public VMException {
     private:
         string filename;
     public: 
-        FileException(const string& fn, const string& msg) : VMException("FILE ERROR- " + msg), filename(fn) {}
+        FileException(const string& fn, const string& msg) : VMException("FILE ERROR- " + msg + "\nFATAL FILE- " + fn), filename(fn) {}
         const string& getFilename() const { return filename; }
 };
 
@@ -753,7 +753,7 @@ class MoveInstruction : public Instruction{
          * @author Kong Zhun Rui
          */
         void execute(CPU& cpu) override;
-        const char* getCommand() const override { return "MOV"; }
+        const char* getCommand() const override { return (mode == 4) ? "LOAD" : "MOV"; }
 };
 
 /**
@@ -1309,6 +1309,7 @@ void ArithmeticInstruction::execute(CPU& cpu)
 void MoveInstruction::execute(CPU& cpu)
 {
     Memory* memory = cpu.getMemory(); // fetch the pointer to memory
+    FlagRegister* flags = cpu.getFlags();
     if (mode == 1){ //MOV register, intermediate
         cpu.getRegister(destI)->setValue(static_cast<signed char>(sourceI));
     } else if (mode == 2){ // MOV register, register
@@ -1318,6 +1319,8 @@ void MoveInstruction::execute(CPU& cpu)
         int dataFromMemory = memory->read(address); //fetch data from that memory address
         cpu.getRegister(destI)->setValue(dataFromMemory); // store it in destination register
     }
+
+    flags->flagIOSetter(sourceI);
 }
 
 void IOInstruction::execute(CPU& cpu)
@@ -1556,7 +1559,7 @@ Instruction* Runner::parseLoadStore(const string& first, stringstream& rest){
             b = b.substr(1, b.length() -2); // clean bracket
             // if loading from an address stored inside a register, eg. Load R1, [R2]
             if (b[0] == 'R' || b[0] == 'r') {
-                return new MoveInstruction(3, numberReg(a), numberReg(b)); }
+                return new MoveInstruction(4, numberReg(a), numberReg(b)); }
             // loading direct from a direct memory number, (eg. load R1, 20)
             return new LoadStoreInstruction(1, numberReg(a), static_cast<signed char>(stoi(b)));
         }
@@ -1649,7 +1652,7 @@ void Runner::loadProgram(const string& filename)
     // Store in CustomVector
     ifstream file(filename);
     if(!file.is_open()){
-        throw FileException("File is not found or cannot be opened.", filename); 
+        throw FileException(filename, "File is not found or cannot be opened."); 
     }
 
     //store into queue
@@ -1689,7 +1692,7 @@ void Runner::executeProgram(bool saveToFile, const string& outputFilename)
         try{
             // tell the specific instruction to execute itself on our virtual machine
             program.at(i) ->execute(virtualMachine); // move the program counter forward by 1
-            //dumpStateToScreen(); // @debug
+            dumpStateToScreen(); // @debug
             virtualMachine.incrementPC(); // move the program counter forward by 1
         } catch (VMException& e){
             if(outFile.is_open()) {
@@ -1739,7 +1742,7 @@ int main() {
         cin >> filename;
         
         if(filename.substr(filename.length() - 4) != ".asm")
-            throw FileException("Invalid input file type- " + filename + ".\nMust be a .asm file.", filename);
+            throw FileException(filename, "Invalid input file type- " + filename + ".\nMust be a .asm file.");
     } catch (VMException& e){
         cerr << e.getErrorMessage() << endl;
         return 1;
