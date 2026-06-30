@@ -1253,6 +1253,7 @@ void ArithmeticInstruction::execute(CPU& cpu)
 void MoveInstruction::execute(CPU& cpu)
 {
     Memory* memory = cpu.getMemory(); // fetch the pointer to memory
+    FlagRegister* flags = cpu.getFlags();
     if (mode == 1){ //MOV register, intermediate
         cpu.getRegister(destI)->setValue(static_cast<signed char>(sourceI));
     } else if (mode == 2){ // MOV register, register
@@ -1262,6 +1263,8 @@ void MoveInstruction::execute(CPU& cpu)
         int dataFromMemory = memory->read(address); //fetch data from that memory address
         cpu.getRegister(destI)->setValue(dataFromMemory); // store it in destination register
     }
+
+    flags->flagIOSetter(sourceI);
 }
 
 void IOInstruction::execute(CPU& cpu)
