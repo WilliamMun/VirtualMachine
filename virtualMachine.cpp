@@ -1692,7 +1692,7 @@ Instruction* Runner::parseIOAndStack(const string& first, stringstream& rest) {
 
     rest >> a;
 
-    if (a.empty()) throw SyntaxException("Missing register operand for command: ");
+    if (a.empty()) throw SyntaxException("Missing register operand for command: " + first);
 
     if (a.back() == ',') throw SyntaxException("Unexpected comma after register in: " + a);
 
