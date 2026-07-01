@@ -1712,7 +1712,7 @@ Instruction* Runner::parseLoadStore(const string& first, stringstream& rest){
     if (a.empty()) throw SyntaxException("Missing operands for command: ");
     if (b.empty()) {
         if (a.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + a);
-        if (a.back() == ',') throw SyntaxException("Missing value operand for command: ");
+        if (a.back() == ',') throw SyntaxException("Missing value operand for command: " + first);
         else throw SyntaxException("Missing space after comma in: " + rest.str()); }
     if (a.back() != ',') throw SyntaxException("Missing comma after first operand in: " + a + " " + b); 
      
