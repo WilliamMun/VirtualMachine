@@ -851,7 +851,7 @@ class MoveInstruction : public Instruction{
         * @post Created a new MoveInstruction object with initialized mode, destination, and source attributes.
         * @author Kong Zhun Rui
         */
-        MoveInstruction(int moveMode, int dest, int source): mode(moveMode), destI(dest), sourceI(source){} 
+        MoveInstruction(int moveMode, int dest, int source): mode(moveMode), destI(dest), sourceI(source) {} 
         /**
          * @brief Execute the move instruction.
          * @param cpu Reference to CPU object, that containing the memory, register.
@@ -1462,13 +1462,13 @@ void MoveInstruction::execute(CPU& cpu)
         cpu.getRegister(destI)->setValue(static_cast<signed char>(sourceI));
     } else if (mode == 2){ // MOV register, register
         cpu.getRegister(destI)->setValue(cpu.getRegister(sourceI)->getValue());
-    } else if (mode == 3 || mode == 4){ // MOV register, [register] or LOAD register, [address] 
+    } else if (mode == 3 || mode == 4){ // MOV register, [register] or LOAD register, [register] 
         int address = cpu.getRegister(sourceI)->getValue(); //get address stored inside the register
         int dataFromMemory = memory->read(address); //fetch data from that memory address
         cpu.getRegister(destI)->setValue(dataFromMemory); // store it in destination register
     }
 
-    flags->flagIOSetter(sourceI);
+    flags->flagIOSetter(cpu.getRegister(destI)->getValue());
 }
 
 void IOInstruction::execute(CPU& cpu)
@@ -1621,6 +1621,16 @@ int Runner::numberReg(string dummy)
     if(dummy[0] == 'R' || dummy[0] == 'r') // check if the first letter is an R or r
     {
         string justNumber = dummy.substr(1); // extract everything after the R (e.g. grab the 1 from R1)
+        
+        if(justNumber.empty()){
+            throw SyntaxException("Missing register index in " + dummy);
+        } else {
+            for (int i = 0; i < justNumber.length(); i++){
+                if(justNumber[i] < '0' || justNumber[i] > '9'){
+                    throw SyntaxException("Invalid character in register index: " + dummy);
+                }
+            }
+        }
         return stoi(justNumber); // convert the string 1 into integer 1
     }
     return 0;
@@ -1628,6 +1638,12 @@ int Runner::numberReg(string dummy)
 
 Instruction* Runner::handleMove(int reg, string value) {
         if (value.front() == '[') {
+            if(value.back() != ']') {
+                throw SyntaxException("Missing a ']' at the back of MOV");
+            }
+            if(value.length() < 3){
+                throw SyntaxException("Empty memory address bracket at MOV");
+            }
             // Register indirect [R1], we are moving based on a memory address stored in a register
             string inner = value.substr(1, value.length() - 2); // strip the brackets to get R1
             return new MoveInstruction(3, reg, numberReg(inner));
@@ -1721,9 +1737,11 @@ Instruction* Runner::parseLoadStore(const string& first, stringstream& rest){
     // loading from memory into a register
     if (first == "LOAD"){
         if (b.front() == '[') {
+            if(b.back() != ']') throw SyntaxException("Missing a ']' at the back of LOAD");
+            if(b.length() < 3) throw SyntaxException("Empty memory address bracket at LOAD");
             b = b.substr(1, b.length() -2); // clean bracket
             // if loading from an address stored inside a register, eg. Load R1, [R2]
-            if (b[0] == 'R' || b[0] == 'r') return new LoadStoreInstruction(1, numberReg(a), numberReg(b));
+            if (b[0] == 'R' || b[0] == 'r') return new MoveInstruction(4, numberReg(a), numberReg(b));
 
             // loading direct from a direct memory number, (eg. load R1, [20])
             return new LoadStoreInstruction(1, numberReg(a), static_cast<signed char>(stoi(b)));
@@ -1734,6 +1752,8 @@ Instruction* Runner::parseLoadStore(const string& first, stringstream& rest){
     if (first == "STORE"){
         // if storing into an address pointed to by a register, eg. store R1, [R2]
         if (b.front() == '['){
+            if(b.back() != ']') throw SyntaxException("Missing a ']' at the back of LOAD");
+            if(b.length() < 3) throw SyntaxException("Empty memory address bracket at LOAD");
             b = b.substr(1, b.length() - 2); // clean brackets
             return new LoadStoreInstruction(3, numberReg(a), numberReg(b)); }
         else if (a[0] == 'R' || a[0]== 'r') {
