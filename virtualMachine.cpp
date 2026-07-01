@@ -512,16 +512,18 @@ class FlagRegister {
         bool CF, OF, UF, ZF;
 
         /**
-         * @brief       Check whether the result of an arithmetic operation contains carry.
-         * @param value The result of the arithmetic operation
-         * @note        'int' is used so that the 9th bit which represent the carry bit can be detected.
-         * @return      Boolean value which represent whether the result contains carry.
-         * @author      Mun William
+         * @brief        Check whether the result of an arithmetic operation contains carry.
+         * @param op     String that storing the type of arithmetic operation
+         * @param result The result of the arithmetic operation
+         * @note         'int' is used so that the 9th bit which represent the carry bit can be detected.
+         * @return       Boolean value which represent whether the result contains carry.
+         * @author       Mun William
          */
-        bool checkCF(int value) { return ((value & 0x100) != 0); }
+        bool checkCF(string op, int result);
 
         /**
          * @brief        Check whether the result of an arithmetic operation is overflow.
+         * @param op     String that storing the type of arithmetic operation
          * @param oper1  Leftside operand of an arithmetic operation
          * @param oper2  Rightside operand of an arithmetic operation
          * @param result Result of the arithmetic operation
@@ -529,10 +531,11 @@ class FlagRegister {
          * @return       Boolean value which represent whether the result is overflow.
          * @author       Mun William
          */
-        bool checkOF(unsigned char oper1, unsigned char oper2, unsigned char result) { return (((~oper1 & ~oper2 & result) & 0x80) != 0); }
+        bool checkOF(string op, unsigned char oper1, unsigned char oper2, int result); 
 
         /**
          * @brief        Check whether the result of an arithmetic operation is underflow.
+         * @param op     String that storing the type of arithmetic operation
          * @param oper1  Leftside operand of an arithmetic operation
          * @param oper2  Rightside operand of an arithmetic operation
          * @param result Result of the arithmetic operation
@@ -540,7 +543,7 @@ class FlagRegister {
          * @return       Boolean value which represent whether the result is underflow.
          * @author       Mun William
          */
-        bool checkUF(unsigned char oper1, unsigned char oper2, unsigned char result) { return (((oper1 & oper2 & ~result) & 0x80) != 0); }
+        bool checkUF(string op, unsigned char oper1, unsigned char oper2, int result);
 
         /**
          * @brief     Check whether the result of an operation is zero
@@ -639,7 +642,7 @@ class FlagRegister {
          * @post         Carry, underflow, overflow, zero flag sets to its respective status.
          * @author       Mun William
          */
-        void flagArithmeticSetter(unsigned char oper1, unsigned char oper2, int result);
+        void flagArithmeticSetter(string op, unsigned char oper1, unsigned char oper2, int result);
 
         /**
          * @brief       Function that sets carry, underflow, overflow and zero flag after an input operation.
@@ -1299,11 +1302,43 @@ CustomQueue<T> &CustomQueue<T>::operator=(const CustomQueue<T> &right)
     return *this;
 }
 
-void FlagRegister::flagArithmeticSetter(unsigned char oper1, unsigned char oper2, int result)
+bool FlagRegister::checkCF(string op, int result)
 {
-    setCF(checkCF(result));
-    setOF(checkOF(oper1, oper2, static_cast<unsigned char>(result)));
-    setUF(checkUF(oper1, oper2, static_cast<unsigned char>(result)));
+    if(op == "ADD")
+        return ((result & 0x100) != 0); 
+    else if(op == "SUB")
+        return (result < 0);
+    else if(op == "MUL")
+        return (result > 255 || result < 0);
+    else 
+        return false;
+}
+
+bool FlagRegister::checkOF(string op, unsigned char oper1, unsigned char oper2, int result)
+{ 
+    if(op == "ADD")
+        return (((~oper1 & ~oper2 & static_cast<unsigned char>(result)) & 0x80) != 0);
+    else if(op == "SUB")
+        return (((~oper1 & oper2 & static_cast<unsigned char>(result)) & 0x80) != 0);
+    else
+        return (result > 127);
+}
+
+bool FlagRegister::checkUF(string op, unsigned char oper1, unsigned char oper2, int result)
+{ 
+    if(op == "ADD")
+        return (((oper1 & oper2 & ~static_cast<unsigned char>(result)) & 0x80) != 0); 
+    else if(op == "SUB")
+        return (((oper1 & ~oper2 & ~static_cast<unsigned char>(result)) & 0x80) != 0);
+    else 
+        return (result < -128);
+}
+
+void FlagRegister::flagArithmeticSetter(string op, unsigned char oper1, unsigned char oper2, int result)
+{
+    setCF(checkCF(op, result));
+    setOF(checkOF(op, oper1, oper2, result));
+    setUF(checkUF(op, oper1, oper2, result));
     setZF(checkZF(static_cast<signed char>(result)));
 }
 
@@ -1450,7 +1485,7 @@ void ArithmeticInstruction::execute(CPU& cpu)
 
     int result = compute(val1, val2); // perform math operation
 
-    flags->flagArithmeticSetter(static_cast<unsigned char>(val1), static_cast<unsigned char>(val2), result);
+    flags->flagArithmeticSetter(ar, static_cast<unsigned char>(val1), static_cast<unsigned char>(val2), result);
 
     destReg->setValue(static_cast<signed char>(result)); // write final result to destination register
 }
