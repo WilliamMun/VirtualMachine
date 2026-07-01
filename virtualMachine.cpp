@@ -1496,7 +1496,7 @@ void IOInstruction::execute(CPU& cpu)
 void ShiftInstruction::execute(CPU& cpu)
 {
     if (count < 0) 
-        throw LogicException("Cannot shift by a negative number."); //immediate execution halt if a negative shift value is provided
+        throw LogicException("Cannot shift by a negative number."); //immediate execution halt if a negative shift value is provided ///< @note Modified by Mun William: Add exception handling
     DataRegister* reg = cpu.getRegister(regI); //fetch pointer to register
     FlagRegister* flags = cpu.getFlags(); //fetch pointer to cpu flags
     flags->resetAll(); //clear all flags
@@ -1649,7 +1649,7 @@ Instruction* Runner::MathAndLogic(const string& first, stringstream& rest) {
     // if the command is increment or decrement, only uses 1 register
     if (first == "INC" || first == "DEC") {
         rest >> dest; // read the next word (eg. R1)
-        if (dest.empty()) throw SyntaxException("Missing register for: ");
+        if (dest.empty()) throw SyntaxException("Missing register for: " + first);
         if (dest.back() == ',') throw SyntaxException("Unexpected comma in: " + dest);
         return new ArithmeticInstruction(first, numberReg(dest));
     }
