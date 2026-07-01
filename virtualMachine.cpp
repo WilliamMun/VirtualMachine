@@ -1369,9 +1369,9 @@ void Memory::displayMemory()
     for(int i = 0; i < 64; i++){
         if(i == 8 || i == 16 || i == 24 || i == 32 || i == 40 || i == 48 || i == 56){
             cout << endl;
-            cout << "#" << static_cast<int>(data[i]) << "#";
+            cout << "#" << internal << setfill('0') << setw(4) << static_cast<int>(data[i]) << "#";
         } else {
-            cout << static_cast<int>(data[i]) << "#";
+            cout << internal << setfill('0') << setw(4) << static_cast<int>(data[i]) << "#";
         }
     }
     cout << endl;
@@ -1611,7 +1611,7 @@ string Runner::format4(int num)
     stringstream belt;
     // setfill('0') tells it to use zeroes.
     // setw(4) tells it to make sure the string is exactly 4 characters wide.
-    belt << setfill('0') << setw(4) << num;
+    belt << internal << setfill('0') << setw(4) << num;
     return belt.str(); //  convert the stream back into a normal string
 }
 
@@ -1870,7 +1870,7 @@ void Runner::executeProgram(const string& outputFilename)
         try{
             // tell the specific instruction to execute itself on our virtual machine
             program.at(i) ->execute(virtualMachine); // move the program counter forward by 1
-            dumpStateToScreen(); // @debug
+            // dumpStateToScreen(); // @debug
             virtualMachine.incrementPC(); // move the program counter forward by 1
         } catch (VMException& e){
             if(outFile.is_open()) {
