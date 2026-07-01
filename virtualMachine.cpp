@@ -1517,7 +1517,12 @@ void IOInstruction::execute(CPU& cpu)
 
         cout << "?" << endl;
         int rawInput; // to store user value
-        cin >> rawInput; //read user value
+        if(!(cin >> rawInput)){ //read user value
+            cin.clear(); // Clear cin error state
+            string buffer;
+            getline(cin, buffer); // Discard the garbage value stored in input buffer.
+            throw SyntaxException("Invalid input. Input must be a numeric value.");
+        } ///< @note Modified by Mun William: Added whole if block to handle exception of INPUT command
 
         reg->setValue(static_cast<signed char>(rawInput)); //convert 32-bit integer to 8-bit signed byte
         flags->flagIOSetter(rawInput);
@@ -1686,7 +1691,7 @@ int Runner::numberReg(string dummy) {
                 }
             }
         }
-        
+        if (justNumber.length() > 9) throw SyntaxException("Register index too large: " + dummy);
         return stoi(justNumber);
     }
     // Completely rejects anything that isn't a valid register
