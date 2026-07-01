@@ -932,6 +932,7 @@ class ShiftInstruction : public Instruction {
         * @brief Executes shift and rotate instruction.
         * @param cpu Reference to CPU object, that containing the memory, register.
         * @note This is a polymorphic function. 'override' means ShiftInstruction::execute() function will override pure virtual function, Instruction::execute() in base class.
+        * @throws LogicException if the shift count is negative.
         * @post Clears all CPU flags, shifts or rotates the 8-bit register value by the specified count, saves the updated 8-bit signed value back to the register, and sets the logical status flags.
         * @author Kong Zhun Rui
         */
@@ -1336,7 +1337,7 @@ Memory& Memory::operator=(const Memory& other)
     if(this == &other)
         return *this;
 
-    for(int i=0;i<6;i++){
+    for(int i=0;i<64;i++){
         this->data[i] = other.data[i];
     }
 
@@ -1494,7 +1495,8 @@ void IOInstruction::execute(CPU& cpu)
 
 void ShiftInstruction::execute(CPU& cpu)
 {
-    if (count < 0) return; //immediate execution halt if a negative shift value is provided
+    if (count < 0) 
+        throw LogicException("Cannot shift by a negative number."); //immediate execution halt if a negative shift value is provided
     DataRegister* reg = cpu.getRegister(regI); //fetch pointer to register
     FlagRegister* flags = cpu.getFlags(); //fetch pointer to cpu flags
     flags->resetAll(); //clear all flags
@@ -1571,7 +1573,6 @@ void LoadStoreInstruction::execute(CPU &cpu)
 
 StackInstruction::StackInstruction(string op, int dRI, CustomStack<signed char> &sysSk): systemStack(sysSk)
 {
-    systemStack = sysSk;
     dataRegisterIndex = dRI;
 
     if(op == "PUSH" || op == "POP"){
@@ -1918,7 +1919,7 @@ int main() {
         cout << "Enter the name of the assembly file you want to run (eg., test.asm): ";
         cin >> filename;
         
-        if(filename.substr(filename.length() - 4) != ".asm")
+        if(filename.length() < 4 || filename.substr(filename.length() - 4) != ".asm")
             throw FileException(filename, "Invalid input file type- " + filename + ".\nMust be a .asm file.");
     } catch (VMException& e){
         cerr << e.getErrorMessage() << endl;
