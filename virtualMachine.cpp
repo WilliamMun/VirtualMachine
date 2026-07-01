@@ -1108,6 +1108,7 @@ class Runner {
 
         bool isBlankLine(string dummy); // helper function, checks if a line is empty or just spaces
         string format4(int num); // Helper function to pad numbers with leading zeroes (eg. 5 into 0005)
+        bool isNumber(const string& str);
         int numberReg(string dummy); // helper function, extracts the number from a register (eg. R1 becomes 1)
         Instruction* handleMove(int reg, string value);
 
@@ -1650,12 +1651,31 @@ string Runner::format4(int num)
     return belt.str(); //  convert the stream back into a normal string
 }
 
-int Runner::numberReg(string dummy)
-{
-    if(dummy.empty()) return 0; // if zero character, returns 0
-    if(dummy[0] == 'R' || dummy[0] == 'r') // check if the first letter is an R or r
-    {
-        string justNumber = dummy.substr(1); // extract everything after the R (e.g. grab the 1 from R1)
+bool Runner::isNumber(const string& str) {
+    if (str.empty()) return false;
+    
+    int start = 0;
+    // Allow negative or positive signs
+    if (str[0] == '-' || str[0] == '+') {
+        if (str.length() == 1) return false; 
+        start = 1;
+    }
+    
+    // Prevent std::out_of_range crashes for massive numbers
+    if (str.length() - start > 9) return false; 
+    
+    // Ensure every character is a digit
+    for (int i = start; i < str.length(); i++) {
+        if (str[i] < '0' || str[i] > '9') return false;
+    }
+    return true;
+}
+
+int Runner::numberReg(string dummy) {
+    if(dummy.empty()) throw SyntaxException("Missing register."); 
+    
+    if(dummy[0] == 'R' || dummy[0] == 'r') {
+        string justNumber = dummy.substr(1); 
         
         if(justNumber.empty()){
             throw SyntaxException("Missing register index in " + dummy);
@@ -1666,137 +1686,147 @@ int Runner::numberReg(string dummy)
                 }
             }
         }
-        return stoi(justNumber); // convert the string 1 into integer 1
+        
+        return stoi(justNumber);
     }
-    return 0;
+    // Completely rejects anything that isn't a valid register
+    throw SyntaxException("Expected a register (e.g., R1), but got: " + dummy);
 }
 
 Instruction* Runner::handleMove(int reg, string value) {
-        if (value.front() == '[') {
-            if(value.back() != ']') {
-                throw SyntaxException("Missing a ']' at the back of MOV");
-            }
-            if(value.length() < 3){
-                throw SyntaxException("Empty memory address bracket at MOV");
-            }
-            // Register indirect [R1], we are moving based on a memory address stored in a register
-            string inner = value.substr(1, value.length() - 2); // strip the brackets to get R1
-            return new MoveInstruction(3, reg, numberReg(inner));
-        }
-        else if (value[0] == 'R' || value[0] == 'r'){
-            // Register to register (eg. MOV R1, R2)
-            return new MoveInstruction(2, reg, numberReg(value));
-        }
-        // immediate to register (eg. MOV R1, 5)
-        return new MoveInstruction(1, reg, stoi(value));
+    if (value.front() == '[') {
+        if(value.back() != ']') throw SyntaxException("Missing a ']' at the back of MOV");
+        if(value.length() < 3) throw SyntaxException("Empty memory address bracket at MOV");
+        
+        // Register indirect [R1]
+        string inner = value.substr(1, value.length() - 2); 
+        return new MoveInstruction(3, reg, numberReg(inner));
     }
+    else if (value[0] == 'R' || value[0] == 'r'){
+        // Register to register (e.g., MOV R1, R2)
+        return new MoveInstruction(2, reg, numberReg(value));
+    }
+    
+    // Guarded Immediate (e.g., MOV R1, 10)
+    if (!isNumber(value)) throw SyntaxException("Expected an immediate number for MOV, but got: " + value);
+    return new MoveInstruction(1, reg, stoi(value));
+}
 
 Instruction* Runner::MathAndLogic(const string& first, stringstream& rest) {
-    // filter out commands this function doesn't handle
     if (first != "INC" && first != "DEC" && first != "ADD" && first != "SUB" && first != "MUL" && first != "DIV" && first != "MOV") return nullptr;
 
-    string dest,value;
+    string dest, value;
     
-    // if the command is increment or decrement, only uses 1 register
     if (first == "INC" || first == "DEC") {
-        rest >> dest; // read the next word (eg. R1)
+        rest >> dest; 
         if (dest.empty()) throw SyntaxException("Missing register for: " + first);
+        if (dest.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first);
         if (dest.back() == ',') throw SyntaxException("Unexpected comma in: " + dest);
         return new ArithmeticInstruction(first, numberReg(dest));
     }
 
-    // for math and mov, read the next two words (destination and value)
     rest >> dest >> value;
 
-    if (dest.empty()) throw SyntaxException("Missing operands for command: ");
+    if (dest.empty()) throw SyntaxException("Missing operands for command: " + first);
+    
+    // Ultimate Comma Guard (Catches: ADD ,5)
+    if (dest.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first);
     
     if (value.empty()) {
         if (dest.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + dest);
         if (dest.back() == ',') throw SyntaxException("Missing value: " + dest);
-        throw SyntaxException("Missing space after comma: " + rest.str());
+        throw SyntaxException("Missing space after comma in: " + rest.str());
     }
     if (dest.back() != ',') throw SyntaxException("Missing comma: " + dest + " " + value);
 
-    // clean variable 'dest' (remove the trailing comma)
-    dest.pop_back();
+    dest.pop_back(); // Clean trailing comma
 
-    int reg = numberReg(dest); // convert R1 to 1
+    int reg = numberReg(dest); 
 
-    // handle move instructions which have diff modes
     if (first == "MOV") {
-        return handleMove(reg,value); }
+        return handleMove(reg, value); 
+    }
         
-    // if wasnt a MOV, it must be basic math operating
-    // check if the second value is a register (starting with R or r)
     if (value[0] == 'R' || value[0] == 'r'){
-        // if its a register (eg. add r1, r2)
-        return new ArithmeticInstruction(first, reg, numberReg(value), false); } // means not immediate)
-    // it is an immediate number (eg. add r1, 6)
+        return new ArithmeticInstruction(first, reg, numberReg(value), false); 
+    } 
     else {
-        return new ArithmeticInstruction(first, reg, stoi(value), true); } // means its immediate
+        // Guarded Immediate
+        if (!isNumber(value)) throw SyntaxException("Expected a number for " + first + ", but got: " + value);
+        return new ArithmeticInstruction(first, reg, stoi(value), true); 
+    }
 }
 
 Instruction* Runner::parseIOAndStack(const string& first, stringstream& rest) {
     if (first != "INPUT" && first != "DISPLAY" && first != "PUSH" && first != "POP") return nullptr; 
 
     string a;
-
     rest >> a;
 
     if (a.empty()) throw SyntaxException("Missing register operand for command: " + first);
-
     if (a.back() == ',') throw SyntaxException("Unexpected comma after register in: " + a);
 
-    // input from keyboard or display to screen
     if (first == "INPUT" || first == "DISPLAY"){
-        return new IOInstruction(first, numberReg(a));}
+        return new IOInstruction(first, numberReg(a));
+    }
     else {
-        return new StackInstruction(first, numberReg(a), virtualMachine.getSystemStack());}
+        return new StackInstruction(first, numberReg(a), virtualMachine.getSystemStack());
+    }
 }
 
 Instruction* Runner::parseLoadStore(const string& first, stringstream& rest){
-    if (first != "LOAD" && first != "STORE") return nullptr; // exit early if not memory
+    if (first != "LOAD" && first != "STORE") return nullptr; 
 
     string a, b;
     rest >> a >> b;
 
-    if (a.empty()) throw SyntaxException("Missing operands for command: ");
+    if (a.empty()) throw SyntaxException("Missing operands for command: " + first);
+    
+    // Ultimate Comma Guard
+    if (a.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first);
+    
     if (b.empty()) {
         if (a.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + a);
         if (a.back() == ',') throw SyntaxException("Missing value operand for command: " + first);
-        else throw SyntaxException("Missing space after comma in: " + rest.str()); }
+        else throw SyntaxException("Missing space after comma in: " + rest.str()); 
+    }
     if (a.back() != ',') throw SyntaxException("Missing comma after first operand in: " + a + " " + b); 
      
     a.pop_back();
 
-    // loading from memory into a register
     if (first == "LOAD"){
         if (b.front() == '[') {
             if(b.back() != ']') throw SyntaxException("Missing a ']' at the back of LOAD");
             if(b.length() < 3) throw SyntaxException("Empty memory address bracket at LOAD");
-            b = b.substr(1, b.length() -2); // clean bracket
-            // if loading from an address stored inside a register, eg. Load R1, [R2]
+            b = b.substr(1, b.length() -2); 
+            
             if (b[0] == 'R' || b[0] == 'r') return new MoveInstruction(4, numberReg(a), numberReg(b));
 
-            // loading direct from a direct memory number, (eg. load R1, [20])
+            // Guarded Address
+            if (!isNumber(b)) throw SyntaxException("Expected a memory address number, but got: " + b);
             return new LoadStoreInstruction(1, numberReg(a), static_cast<signed char>(stoi(b)));
+        } else {
+            throw SyntaxException("LOAD memory address must be in brackets near: " + a + ", " + b);
         }
     }
 
-    // storing from a register into a memory
     if (first == "STORE"){
-        // if storing into an address pointed to by a register, eg. store R1, [R2]
         if (b.front() == '['){
-            if(b.back() != ']') throw SyntaxException("Missing a ']' at the back of LOAD");
-            if(b.length() < 3) throw SyntaxException("Empty memory address bracket at LOAD");
-            b = b.substr(1, b.length() - 2); // clean brackets
-            return new LoadStoreInstruction(3, numberReg(a), numberReg(b)); }
+            if(b.back() != ']') throw SyntaxException("Missing a ']' at the back of STORE");
+            if(b.length() < 3) throw SyntaxException("Empty memory address bracket at STORE");
+            b = b.substr(1, b.length() - 2); 
+            return new LoadStoreInstruction(3, numberReg(a), numberReg(b)); 
+        }
         else if (a[0] == 'R' || a[0]== 'r') {
-            // storing directly into a specific memory slot (eg. store R3, 20), 20 is the memory address R3 is the register that holds the value to be stored
-            return new LoadStoreInstruction(2, numberReg(a), static_cast<signed char>(stoi(b))); }
-        // stores into memory slot (eg. store 20, R3), this also stores the value in register 3 to memory 20
+            // Guarded Address (STORE R1, 43)
+            if (!isNumber(b)) throw SyntaxException("Expected a memory address number, but got: " + b);
+            return new LoadStoreInstruction(2, numberReg(a), static_cast<signed char>(stoi(b))); 
+        }
         else  {
-            return new LoadStoreInstruction(2, numberReg(b), static_cast<signed char>(stoi(a))); }
+            // Guarded Address (STORE 43, R1)
+            if (!isNumber(a)) throw SyntaxException("Expected a memory address number, but got: " + a);
+            return new LoadStoreInstruction(2, numberReg(b), static_cast<signed char>(stoi(a))); 
+        }
     }
     return nullptr;
 }
@@ -1804,13 +1834,20 @@ Instruction* Runner::parseLoadStore(const string& first, stringstream& rest){
 Instruction* Runner::ShiftAndReset(const string& first, stringstream& rest) {
     if (first != "RESET" && first != "SHL" && first != "SHR" && first != "ROL" && first != "ROR") return nullptr;
 
-    string a,b;
+    string a, b;
     rest >> a;
     if (a.empty()) throw SyntaxException("Missing operands for command: " + first);
+    
+    // Ultimate Comma Guard
+    if (a.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first);
 
-    // clearing the flags
     if (first == "RESET"){
-    if (a.back() == ',') throw SyntaxException("Unexpected comma in RESET: " + a);
+        if (a.back() == ',') throw SyntaxException("Unexpected comma in RESET: " + a);
+        
+        // Strict Flag Verification
+        if (a != "CF" && a != "OF" && a != "ZF" && a != "UF") {
+            throw SyntaxException("Invalid flag name for RESET: " + a);
+        }
         return new ResetFlagsInstruction(a);
     }
 
@@ -1819,11 +1856,14 @@ Instruction* Runner::ShiftAndReset(const string& first, stringstream& rest) {
     if (b.empty()) {
         if (a.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + a);
         if (a.back() == ',') throw SyntaxException("Missing value: " + a);
-        throw SyntaxException("Missing space after comma in: " + rest.str());}
+        throw SyntaxException("Missing space after comma in: " + rest.str());
+    }
     if (a.back() != ',') throw SyntaxException("Missing comma: " + a + " " + b);
 
     a.pop_back();
 
+    // Guarded Immediate
+    if (!isNumber(b)) throw SyntaxException("Expected a shift count number, but got: " + b);
     return new ShiftInstruction(first, numberReg(a), stoi(b));
 }
 
