@@ -512,13 +512,14 @@ class FlagRegister {
         bool CF, OF, UF, ZF;
 
         /**
-         * @brief       Check whether the result of an arithmetic operation contains carry.
-         * @param value The result of the arithmetic operation
-         * @note        'int' is used so that the 9th bit which represent the carry bit can be detected.
-         * @return      Boolean value which represent whether the result contains carry.
-         * @author      Mun William
+         * @brief        Check whether the result of an arithmetic operation contains carry.
+         * @param op     String that storing the type of arithmetic operation
+         * @param result The result of the arithmetic operation
+         * @note         'int' is used so that the 9th bit which represent the carry bit can be detected.
+         * @return       Boolean value which represent whether the result contains carry.
+         * @author       Mun William
          */
-        bool checkCF(string op, int value);
+        bool checkCF(string op, int result);
 
         /**
          * @brief        Check whether the result of an arithmetic operation is overflow.
