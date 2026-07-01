@@ -1751,7 +1751,7 @@ Instruction* Runner::ShiftAndReset(const string& first, stringstream& rest) {
 
     string a,b;
     rest >> a;
-    if (a.empty()) throw SyntaxException("Missing operands for command: ");
+    if (a.empty()) throw SyntaxException("Missing operands for command: " + first);
 
     // clearing the flags
     if (first == "RESET"){
