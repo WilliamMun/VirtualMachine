@@ -1123,7 +1123,7 @@ class Runner {
     public:
         Runner() {}  // default constructor
         ~Runner(); // destructor to clean up dynamic allocated memory, prevent memory leak
-        void loadProgram(const string& filename); // loads asm file, read it, translate into instructions
+        void loadProgram(const string& filename, const string& outputFilename); // loads asm file, read it, translate into instructions
         void executeProgram(const string& outputFilename = "output.txt"); // loops through the saved instructions and tells the CPU to perform them
         void dumpStateToScreen(); // screen output
         void dumpStateToFile(ofstream& outFile); // file output
@@ -1705,6 +1705,8 @@ Instruction* Runner::handleMove(int reg, string value) {
         
         // Register indirect [R1]
         string inner = value.substr(1, value.length() - 2); 
+        if (inner.empty()) throw SyntaxException("Empty memory address bracket at MOV");
+        if (inner[0] != 'R' && inner[0] != 'r') throw SyntaxException("MOV only allows register indirect form [R?], not [" + inner + "]");
         return new MoveInstruction(3, reg, numberReg(inner));
     }
     else if (value[0] == 'R' || value[0] == 'r'){
@@ -1820,11 +1822,13 @@ Instruction* Runner::parseLoadStore(const string& first, stringstream& rest){
             if(b.back() != ']') throw SyntaxException("Missing a ']' at the back of STORE");
             if(b.length() < 3) throw SyntaxException("Empty memory address bracket at STORE");
             b = b.substr(1, b.length() - 2); 
+
+            if (b[0] != 'R' && b[0] != 'r') throw SyntaxException("Unexpected bracketed number/address in STORE: [" + b + "]");
             return new LoadStoreInstruction(3, numberReg(a), numberReg(b)); 
         }
         else if (a[0] == 'R' || a[0]== 'r') {
             // Guarded Address (STORE R1, 43)
-            if (!isNumber(b)) throw SyntaxException("Expected a memory address number, but got: " + b);
+            if (!isNumber(b)) throw SyntaxException("Invalid STORE syntax. Expected STORE Rn, number or STORE Rn, [Rm], but got: STORE " + a + ", " + b);
             return new LoadStoreInstruction(2, numberReg(a), static_cast<signed char>(stoi(b))); 
         }
         else  {
@@ -1918,43 +1922,57 @@ void Runner::decodeAndStore(string currentLine){
         else throw SyntaxException("Invalid syntax found: " + first);
 }
 
-void Runner::loadProgram(const string& filename)
+void Runner::loadProgram(const string& filename, const string& outputFilename)
 {
-    // Read .asm file line by line
-    // Decode strings into Instruction objects
-    // Store in CustomVector
     ifstream file(filename);
-    if(!file.is_open()){
-        throw FileException(filename, "File is not found or cannot be opened."); 
+    if(!file.is_open()) throw FileException(filename, "File is not found or cannot be opened."); 
+    
+    ofstream outFile(outputFilename);
+    if (!outFile.is_open()) {
+        file.close();
+        throw FileException(outputFilename, "Output file cannot be created.");
     }
 
     //store into queue
     CustomQueue<string> lineQueue;
+    CustomQueue<int> lineNumberQueue;
     string line;
+    int fileLineNumber = 0;
 
     // read every line from the file, and put it in a queue
     while(getline(file,line))
     {
+        fileLineNumber++;
         if(isBlankLine(line)) continue; // skip empty lines
         lineQueue.enqueue(line); // put the line back at the queue
+        lineNumberQueue.enqueue(fileLineNumber);
     }
     file.close(); // close the file when done
 
     // take lines out the queue one by one, translate them and put them into a vector
-    try {
-        while(!lineQueue.isEmpty())
-        {
-            string currentLine = lineQueue.front();
+    while (!lineQueue.isEmpty())
+    {
+        string currentLine = lineQueue.front();
+        int currentLineNumber = lineNumberQueue.front();
 
-            // cast all uppercase
-            for (char &c : currentLine) c = toupper(c);
+        // convert to uppercase
+        for (char &c : currentLine) c = toupper(c);
 
+        try {
             decodeAndStore(currentLine);
-            lineQueue.dequeue();
         }
-    } catch (VMException& e){
-        throw RunTimeCrashException(e.getErrorMessage());
+        catch (VMException& e) {
+            outFile << "Error at line " << currentLineNumber << ": " << e.getErrorMessage() << "\n";
+            outFile << "Instruction: " << lineQueue.front() << "\n";
+            outFile.close();
+
+            throw RunTimeCrashException("Syntax error at line " + to_string(currentLineNumber) + ": " + e.getErrorMessage());
+        }
+
+        lineQueue.dequeue();
+        lineNumberQueue.dequeue();
     }
+    outFile.close();
 }
 
 void Runner::executeProgram(const string& outputFilename)
@@ -2032,7 +2050,7 @@ int main() {
     string outName = "output - " + baseName + ".txt";
 
     try{
-        interpreter.loadProgram(filename);
+        interpreter.loadProgram(filename, outName);
         interpreter.executeProgram(outName);
     } catch (VMException& e){
         cerr << e.getErrorMessage() << endl;
