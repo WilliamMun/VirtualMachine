@@ -514,12 +514,14 @@ class FlagRegister {
         /**
          * @brief        Check whether the result of an arithmetic operation contains carry.
          * @param op     String that storing the type of arithmetic operation
+         * @param oper1  Leftside operand of an arithmetic operation
+         * @param oper2  Rightside operand of an arithmetic operation
          * @param result The result of the arithmetic operation
          * @note         'int' is used so that the 9th bit which represent the carry bit can be detected.
          * @return       Boolean value which represent whether the result contains carry.
          * @author       Mun William
          */
-        bool checkCF(string op, int result);
+        bool checkCF(string op, unsigned char oper1, unsigned char oper2, int result);
 
         /**
          * @brief        Check whether the result of an arithmetic operation is overflow.
@@ -1302,12 +1304,14 @@ CustomQueue<T> &CustomQueue<T>::operator=(const CustomQueue<T> &right)
     return *this;
 }
 
-bool FlagRegister::checkCF(string op, int result)
+bool FlagRegister::checkCF(string op, unsigned char oper1, unsigned char oper2, int result)
 {
-    if(op == "ADD")
-        return ((result & 0x100) != 0); 
+    if(op == "ADD"){
+        int unsignedSum = static_cast<int>(oper1) + static_cast<int>(oper2);
+        return ((unsignedSum & 0x100) != 0);
+    }
     else if(op == "SUB")
-        return (result < 0);
+        return (oper1 < oper2);
     else if(op == "MUL")
         return (result > 255 || result < 0);
     else 
@@ -1336,7 +1340,7 @@ bool FlagRegister::checkUF(string op, unsigned char oper1, unsigned char oper2, 
 
 void FlagRegister::flagArithmeticSetter(string op, unsigned char oper1, unsigned char oper2, int result)
 {
-    setCF(checkCF(op, result));
+    setCF(checkCF(op, oper1, oper2, result));
     setOF(checkOF(op, oper1, oper2, result));
     setUF(checkUF(op, oper1, oper2, result));
     setZF(checkZF(static_cast<signed char>(result)));
@@ -1966,7 +1970,7 @@ void Runner::loadProgram(const string& filename, const string& outputFilename)
             outFile << "Instruction: " << lineQueue.front() << "\n";
             outFile.close();
 
-            throw RunTimeCrashException("Syntax error at line " + to_string(currentLineNumber) + ": " + e.getErrorMessage());
+            throw RunTimeCrashException("AT LINE " + to_string(currentLineNumber) + " >> " + e.getErrorMessage());
         }
 
         lineQueue.dequeue();
