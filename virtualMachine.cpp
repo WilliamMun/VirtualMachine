@@ -1299,12 +1299,53 @@ class Runner {
         void decodeAndStore(string currentline); 
 
     public:
-        Runner() {}  // default constructor
-        ~Runner(); // destructor to clean up dynamic allocated memory, prevent memory leak
-        void loadProgram(const string& filename, const string& outputFilename); // loads asm file, read it, translate into instructions
-        void executeProgram(const string& outputFilename = "output.txt"); // loops through the saved instructions and tells the CPU to perform them
-        void dumpStateToScreen(); // screen output
-        void dumpStateToFile(ofstream& outFile); // file output
+    
+        /** * @brief Constructs a Runner object with default initialization
+         * @author Wong Qian Xian
+         */
+        Runner() {}
+
+        /**
+         * @brief Destroys the Runner object
+         * @post  Iterates through the program vector and deletes all dynamically allocated Instruction pointers, preventing memory leaks
+         * @author Wong Qian Xian
+         */
+        ~Runner(); 
+
+        /**
+         * @brief   Loads and parses an assembly program from a file
+         * @details Reads the file line-by-line, converts text to uppercase, ignores blank lines, 
+         * and decodes the text into executable instructions
+         * @param   filename The name of the input .asm file to read
+         * @param   outputFilename The name of the text file where errors or final outputs will be written
+         * @throws  FileException if the input file cannot be found or the output file cannot be created
+         * @throws  RunTimeCrashException if a syntax error is found during decoding
+         * @author  Wong Qian Xian
+         */
+        void loadProgram(const string& filename, const string& outputFilename); 
+
+        /**
+         * @brief   Executes the loaded instruction sequence
+         * @details Loops through the stored Instruction objects and triggers their execute() functions on the virtual machine 
+         * Handles execution halting and logs errors if a hardware limit is breached
+         * @param   outputFilename The file where the crash details or successful final state will be recorded. Defaults to "output.txt"
+         * @throws  RunTimeCrashException if an instruction causes a CPU-level crash (eg, division by zero, stack overflow)
+         * @author  Wong Qian Xian
+         */
+        void executeProgram(const string& outputFilename = "output.txt");
+
+        /**
+         * @brief  Prints the final state of the CPU and memory to the console screen
+         * @author Wong Qian Xian
+         */
+        void dumpStateToScreen();
+
+        /**
+         * @brief  Writes the final state of the CPU and memory to the designated output file
+         * @param  outFile A reference to the open output file stream
+         * @author Wong Qian Xian
+         */
+        void dumpStateToFile(ofstream& outFile);
 };
 
 // ==========================================
