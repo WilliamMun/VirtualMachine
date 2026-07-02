@@ -729,31 +729,110 @@ class Memory {
         void displayMemory();
 };
 
-// Contains registers, memory, PC, and executes instructions
-// holds data, keep track where the program is, manages temporary storage
+/**
+ * @brief   A class representing the central processing unit of the virtual machine
+ * @details The CPU acts as the brain that contains the data registers (R0-R7), flag registers, and main memory
+ * It keeps track of the program execution flow using the Program Counter (PC) 
+ * and manages temporary data storage using the Stack Index (SI) and system stack
+ * @author  Wong Qian Xian
+ */
 class CPU {
     private:
-        DataRegister R[8];     // R0 to R7
-        FlagRegister flags;       // Aggregated flags (0 or 1 signals)
-        Memory memory;            // Composed memory
-        unsigned char PC;         // Program Counter, remembers which line of the assembly program is reading (1 byte, starts at 0)
-        unsigned char SI;         // Stack Index, count of how many things piled up (1 byte, starts at 0)
-        CustomStack<signed char> systemStack; // Temporary store number
+        DataRegister R[8]; // array of 8 data registers representing R0 to R7
+        FlagRegister flags; // // aggregated flags storing 0 or 1 signals for machine states
+        Memory memory; // memory instance used by the virtual machine to store and load data
+        int PC; // program counter remembers which line of the assembly program is currently executing (starts at 0)
+        unsigned char SI; // stack index tracks how many items are piled up in the stack. (starts at 0)
+        CustomStack<signed char> systemStack; // temporary storage stack to hold numbers pushed during execution
 
     public:
-        CPU() : PC(0), SI(0) {} // sets the program counter and stack index to 0 when cpu is first created
-        // Getters to allow instructions to manipulate CPU state
-        DataRegister* getRegister(int index); // returns pointer to a specific data register, pointer gives the runner the memory address of the pointer
-        FlagRegister* getFlags() { return &flags; } // returns pointer to flag registers so the runner can check or update them
-        Memory* getMemory() { return &memory; } // returns a pointer to the main memory so the runner can load or store data
+        /** * @brief Constructs a CPU object and initializes system counters
+         * @post  The program counter and stack index are both initialized to 0
+         * @author Wong Qian Xian
+         */
+        CPU() : PC(0), SI(0) {} 
+
+        /**
+         * @brief  Retrieves a pointer to a specific data register
+         * @param  index The integer index (0-7) specifying which data register to retrieve
+         * @return A pointer to the requested DataRegister object, giving the runner its memory address
+         * @author Wong Qian Xian
+         */
+        DataRegister* getRegister(int index); 
+
+        /**
+         * @brief  Retrieves a pointer to the flag register.
+         * @return A pointer to the FlagRegister so the runner can check or update system flags
+         * @author Wong Qian Xian
+         */
+        FlagRegister* getFlags() { return &flags; } 
+
+        /**
+         * @brief  Retrieves a pointer to the main memory.
+         * @return A pointer to the Memory object allowing the runner to load or store data
+         * @author Wong Qian Xian
+         */
+        Memory* getMemory() { return &memory; } 
+
+        /**
+         * @brief  Retrieves a reference to the system stack
+         * @return A reference to the CustomStack holding signed characters
+         * @author Wong Qian Xian
+         */
         CustomStack<signed char>& getSystemStack() {return systemStack;}
-        unsigned char getPC() const { return PC; } // return the current line the Program Counter is on, const prevent changes on PC value
-        void incrementPC() { PC++; } // runner calls this after finishing an instruction, move program counter forward by 1, cpu knows to move to next line
-        unsigned char getSI() const { return SI; } //return the current number of items piled in the stack
-        void incrementSI() { SI++; } // increases stack index by 1 when a new item is added to stack
-        void decrementSI() { SI--; } // decreases stack index by 1 when a new item is removed from stack
+
+        /**
+         * @brief  Returns the current program counter value
+         * @note   The const keyword ensures that the program counter value cannot be modified through this getter
+         * @return The current line number the PC is on as an unsigned character
+         * @author Wong Qian Xian
+         */
+        int getPC() const { return PC; }
+
+        /**
+         * @brief  Moves the program counter forward.
+         * @post   The PC value is increased by 1, signaling the CPU to move to the next line of instruction
+         * @author Wong Qian Xian
+         */
+        void incrementPC() { PC++; } 
+
+        /**
+         * @brief  Returns the current stack index value
+         * @note   The const keyword ensures that the stack index value cannot be modified through this getter
+         * @return The current number of items piled in the stack as an unsigned character
+         * @author Wong Qian Xian
+         */
+        unsigned char getSI() const { return SI; } 
+
+        /**
+         * @brief  Increases the stack index
+         * @post   The SI value is increased by 1 to reflect a new item added to the stack
+         * @author Wong Qian Xian
+         */
+        void incrementSI() { SI++; } 
+
+        /**
+         * @brief  Decreases the stack index
+         * @post   The SI value is decreased by 1 to reflect an item being removed from the stack
+         * @author Wong Qian Xian
+         */
+        void decrementSI() { SI--; } 
+
+        /**
+         * @brief  Adds a new value to the top of the system stack
+         * @param  value The signed character number to be pushed into the stack
+         * @post   The value is stored in the stack and the SI is effectively increased
+         * @author Wong Qian Xian
+         */
         void pushToStack(signed char value);
-        signed char popFromStack(); // removes the top value from stack and gives it back to caller, & modifies the variable that runner passed into function directly
+
+        /**
+         * @brief  Removes the top value from the stack and returns it
+         * @post   The top item is removed and the SI is effectively decreased
+         * @return The removed signed character value that was sitting at the top of the stack
+         * @author wong qian xian
+         */
+        signed char popFromStack();
 };
 
 /**
