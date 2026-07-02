@@ -1178,25 +1178,124 @@ class StackInstruction : public Instruction {
         const char* getCommand() const override { return operation.c_str(); }
 };
 
-// Loads programs, decodes instructions, delegates execution to CPU
+/**
+ * @brief  Operates the execution of the virtual machine.
+ * @details The Runner class acts as the bridge between the user's assembly text file and the CPU
+ * It reads the file, validates the syntax, decodes the text into executable Instruction objects
+ * and then delegates the execution of those instructions to the composed CPU. 
+ * It also handles all system state output to the console and log files.
+ * @author  Wong Qian Xian
+ */
 class Runner {
     private:
-        CPU virtualMachine; // Composition, actual virtual machine that will do math and store data
-        CustomVector<Instruction*> program; // dynamic array vector that hold pointers to instructions
-        // uses polymorphism, holds generic instruction pointers, but they will point to specific types
+        // Composition: The actual virtual machine instance that performs mathematical operations and memory storage
+        CPU virtualMachine;
 
-        bool isBlankLine(string dummy); // helper function, checks if a line is empty or just spaces
-        string format4(int num); // Helper function to pad numbers with leading zeroes (eg. 5 into 0005)
+        // A dynamic array vector holding polymorphic base pointers to the specific parsed Instruction objects
+        CustomVector<Instruction*> program; 
+
+        /**
+         * @brief  Checks if a line from the text file is entirely empty or only contains whitespace
+         * @param  dummy The string line to check.
+         * @return True if the line is blank or whitespace, false otherwise
+         * @author Wong Qian Xian
+         */
+        bool isBlankLine(string dummy); 
+
+        /**
+         * @brief  Pads an integer with leading zeroes
+         * @param  num The integer to format
+         * @return A string representation of the number padded to exactly 4 characters (eg, 5 to "0005")
+         * @author Wong Qian Xian
+         */
+        string format4(int num); 
+        
+        /**
+         * @brief   Strictly checks if a string is a valid number to prevent system crashes
+         * @details Ensures the string contains only digits (allows +/- signs) and 
+         * limits the length to prevent std::out_of_range crashes when converting massive numbers to integers
+         * @param   str The string to evaluate.
+         * @return  True if it is a safely convertible number, false otherwise
+         * @author  Wong Qian Xian
+         */
         bool isNumber(const string& str);
-        int numberReg(string dummy); // helper function, extracts the number from a register (eg. R1 becomes 1)
+
+        /**
+         * @brief   Extracts the numeric index from a register string
+         * @details Strips the 'R' or 'r' from strings like "R1" and safely converts the remaining string to an integer
+         * @param   dummy The register string (eg, "R1")
+         * @throws  SyntaxException if the string is not a valid register format or the index is out of bounds
+         * @return  The integer index of the register
+         * @author  Wong Qian Xian
+         */
+        int numberReg(string dummy);
+
+        /**
+         * @brief  Creates the appropriate MoveInstruction based on string syntax
+         * @param  reg The destination register index
+         * @param  value The string representing the source (immediate, register, or indirect memory)
+         * @throws SyntaxException if the source value has invalid brackets or formatting
+         * @return A pointer to a newly allocated MoveInstruction
+         * @author Wong Qian Xian
+         */
         Instruction* handleMove(int reg, string value);
 
-        // acts as translator, the read text from file and figure whih instruction object to create
+
+        /**
+         * @brief  Parses standard mathematical and logical commands
+         * @param  first The command keyword (eg, "ADD", "INC")
+         * @param  rest The remaining stringstream containing the operands
+         * @throws SyntaxException if commas or operands are missing or malformed
+         * @return A pointer to a parsed ArithmeticInstruction, or nullptr if the command is not handled here
+         * @author Wong Qian Xian
+         */
         Instruction* MathAndLogic(const string& first, stringstream& rest);
+
+        /**
+         * @brief  Parses Input/Output and Stack manipulation commands
+         * @param  first The command keyword (eg, "PUSH", "INPUT")
+         * @param  rest The remaining stringstream containing the register operand
+         * @throws SyntaxException if commas are present or the operand is missing
+         * @return A pointer to a parsed IOInstruction or StackInstruction, or nullptr if unhandled
+         * @author Wong Qian Xian
+         */
         Instruction* parseIOAndStack(const string& first, stringstream& rest);
+
+        /**
+         * @brief  Parses direct and indirect memory commands
+         * @param  first The command keyword ("LOAD" or "STORE")
+         * @param  rest The remaining stringstream containing the operands
+         * @throws SyntaxException if bracket formatting, commas, or data types are invalid
+         * @return A pointer to a parsed LoadStoreInstruction, or nullptr if unhandled
+         * @author wWong Qian Xian
+         */
         Instruction* parseLoadStore(const string& first, stringstream& rest);
+
+        /**
+         * @brief  Parses bitwise shift and flag reset commands
+         * @param  first The command keyword (eg, "SHL", "RESET")
+         * @param  rest The remaining stringstream containing the operands
+         * @throws SyntaxException if the flag name is invalid or the shift count is malformed
+         * @return A pointer to a parsed ShiftInstruction or ResetFlagsInstruction, or nullptr if unhandled
+         * @author Wong Qian Xian
+         */
         Instruction* ShiftAndReset(const string& first, stringstream& rest);
-        string buildCpuStateString(); // build the shared cpu state to prevent repetition
+
+        /**
+         * @brief  Constructs a formatted string of the current CPU registers, flags, and PC
+         * @return A formatted string representation of the CPU state
+         * @author Wong Qian Xian
+         */
+        string buildCpuStateString(); 
+
+        /**
+         * @brief   Routes a line of assembly code to the correct parser
+         * @details Translates the text into an Instruction object and pushes it into the program vector
+         * Also enforces strict syntax rules by catching extra trailing garbage text
+         * @param   currentline The full line of assembly text from the file
+         * @throws  SyntaxException if the command keyword is unknown or trailing characters exist
+         * @author  Wong Qian Xian
+         */
         void decodeAndStore(string currentline); 
 
     public:
