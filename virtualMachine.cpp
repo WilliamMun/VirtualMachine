@@ -1644,16 +1644,16 @@ DataRegister *CPU::getRegister(int index)
 void CPU::pushToStack(signed char value)
 {
     systemStack.push(value); // puts the data into the customstack
-    incrementSI(); //updates counter so the cpu knows
+    incrementSI(); // updates counter so the cpu knows
 }
 
 signed char CPU::popFromStack()
 {
     try { ///< @note Added by Mun William: Exception Handling
-        signed char peek = systemStack.peek();
-        systemStack.pop();
-        decrementSI();
-        return peek;
+        signed char peek = systemStack.peek(); // retrieve the value currently at the top of the stack without removing it yet
+        systemStack.pop(); // remove the top item from the stack
+        decrementSI(); // update the CPU's counter to reflect the removed item
+        return peek; // return the saved top value to the instruction that called this function
     } catch (LogicException& e) { ///< @note Added by Mun William: Exception Handling
         throw HardwareException("Stack underflow. Trying to pop empty stack."); ///< @note Added by Mun William: Exception Handling
     }
@@ -1860,148 +1860,144 @@ bool Runner::isBlankLine(string dummy)
     if (dummy.empty()) return true; // if there is zero character, return blank
     for(int i=0; i < dummy.length(); i++) // look at every character in the string
     {
-        if(dummy[i] != ' ' && dummy[i]!= '\t' && dummy[i]!= '\r' && dummy[i]!= '\n') // find anything that is not a space, tab or enter key, then not blank
-            return false;
+        if(dummy[i] != ' ' && dummy[i]!= '\t' && dummy[i]!= '\r' && dummy[i]!= '\n') // find anything that is not a space, tab or enter key, then it is not blank
+            return false; // then the line contains actual text, return false immediately
     }
-    return true; // if only found spaces or tabs, it is blank
+    return true; // // if the loop finishes and only found whitespace characters, it is blank
 }
 
 string Runner::format4(int num)
 {
-    stringstream belt;
-    belt << internal << setfill('0') << setw(4) << num; // setfill('0') tells it to use zeroes, setw(4) tells it to make sure the string is exactly 4 characters wide
-    return belt.str(); //  convert the stream back into a normal string
+    stringstream belt; // create a string stream object to construct our formatted output
+    belt << internal << setfill('0') << setw(4) << num; // 'internal' aligns the padding appropriately for numbers, setfill('0') tells it to use zeroes, setw(4) tells it to make sure the string is exactly 4 characters wide
+    return belt.str(); //  convert the stream back into a normal string and return it
 }
 
 bool Runner::isNumber(const string& str) 
 {
-    if (str.empty()) return false;
+    if (str.empty()) return false; // check 1: if they handed us nothing, reject it immediately
     int start = 0;
-    if (str[0] == '-' || str[0] == '+') { //allow negative or positive signs
-        if (str.length() == 1) return false; 
+    if (str[0] == '-' || str[0] == '+') { // check 2: allow the very first character to be a negative or positive sign
+        if (str.length() == 1) return false;  // if it is just a sign (like "-") with no actual numbers after it, reject it
         start = 1;
     }
     
-    if (str.length() - start > 9) return false; // prevent std::out_of_range crashes for massive numbers
+    if (str.length() - start > 9) return false; // check 3: if the number of digits is more than 9, it is too massive for a standard integer and will crash the system
     
-    for (int i = start; i < str.length(); i++) { // ensure every character is a digit
-        if (str[i] < '0' || str[i] > '9') return false;
+    for (int i = start; i < str.length(); i++) { // check 4: check every single remaining character one by one
+        if (str[i] < '0' || str[i] > '9') return false; // if we find any character that is not between 0 and 9 (like a letter or decimal) then reject it
     }
-    return true;
+    return true; // if it survived all the security checks, it is a safe number
 }
 
 int Runner::numberReg(string dummy) {
-    if(dummy.empty()) throw SyntaxException("Missing register."); 
+    if(dummy.empty()) throw SyntaxException("Missing register."); // check 1: if they handed us an entirely empty string, reject it
     
-    if(dummy[0] == 'R' || dummy[0] == 'r') {
-        string justNumber = dummy.substr(1); 
+    if(dummy[0] == 'R' || dummy[0] == 'r') { // check 2: does the string start with 'R' or 'r'?
+        string justNumber = dummy.substr(1); // extract everything after the 'R' (eg, grab the "1" from "R1")
         
-        if(justNumber.empty()){
+        if(justNumber.empty()){ // check 3: did they just type "R" and forget the number
             throw SyntaxException("Missing register index in " + dummy);
         } else {
-            for (int i = 0; i < justNumber.length(); i++){
-                if(justNumber[i] < '0' || justNumber[i] > '9'){
+            for (int i = 0; i < justNumber.length(); i++){ // check 4: check every single character of the remaining string
+                if(justNumber[i] < '0' || justNumber[i] > '9'){ // if there are any letters or symbols mixed into the number, reject it
                     throw SyntaxException("Invalid character in register index: " + dummy);
                 }
             }
         }
-        if (justNumber.length() > 9) throw SyntaxException("Register index too large: " + dummy);
-        return stoi(justNumber);
+        if (justNumber.length() > 9) throw SyntaxException("Register index too large: " + dummy); // check 5: if they typed "R9999999999", prevent C++ from crashing
+        return stoi(justNumber); // convert the verified string (like "1") into a real integer (1) and return it
     }
-    // Completely rejects anything that isn't a valid register
-    throw SyntaxException("Expected a register (e.g., R1), but got: " + dummy);
+    throw SyntaxException("Expected a register (e.g., R1), but got: " + dummy); // check 6: if the string didn't even start with an 'R', it's completely invalid
 }
 
 Instruction* Runner::handleMove(int reg, string value) {
-    if (value.front() == '[') {
-        if(value.back() != ']') throw SyntaxException("Missing a ']' at the back of MOV");
+    if (value.front() == '[') { // scene 1: MOV R0, [R1], if the first character is a bracket, it means we are looking at a memory address
+        if(value.back() != ']') throw SyntaxException("Missing a ']' at the back of MOV"); // must have a closing bracket, and can't be empty "[]"
         if(value.length() < 3) throw SyntaxException("Empty memory address bracket at MOV");
         
-        // Register indirect [R1]
-        string inner = value.substr(1, value.length() - 2); 
-        if (inner.empty()) throw SyntaxException("Empty memory address bracket at MOV");
-        if (inner[0] != 'R' && inner[0] != 'r') throw SyntaxException("MOV only allows register indirect form [R?], not [" + inner + "]");
-        return new MoveInstruction(3, reg, numberReg(inner));
+        string inner = value.substr(1, value.length() - 2); // strip off the '[' and ']' to look at the inner text (eg, turn "[R1]" into "R1")
+        if (inner.empty()) throw SyntaxException("Empty memory address bracket at MOV"); // ensure they didn't just type spaces inside the brackets
+        if (inner[0] != 'R' && inner[0] != 'r') throw SyntaxException("MOV only allows register indirect form [R?], not [" + inner + "]"); // For MOV, the inside of the bracket must be a register. Reject [20]
+        return new MoveInstruction(3, reg, numberReg(inner)); // Mode 3: move data from the memory address pointed to by a register
     }
-    else if (value[0] == 'R' || value[0] == 'r'){
-        // Register to register (e.g., MOV R1, R2)
-        return new MoveInstruction(2, reg, numberReg(value));
+    else if (value[0] == 'R' || value[0] == 'r'){ // scene 2: MOV R0, R1, if it starts with 'R' or 'r', they just want to copy data from one register to another
+        return new MoveInstruction(2, reg, numberReg(value)); // Mode 2: move data directly between registers, numberReg  ensure 'value' is a perfect register
     }
     
-    // Guarded Immediate (e.g., MOV R1, 10)
-    if (!isNumber(value)) throw SyntaxException("Expected an immediate number for MOV, but got: " + value);
+    if (!isNumber(value)) throw SyntaxException("Expected an immediate number for MOV, but got: " + value); // scene 3: MOV R0, 10, if it didn't have brackets and didn't start with 'R', it is a raw number
     return new MoveInstruction(1, reg, stoi(value));
 }
 
 Instruction* Runner::MathAndLogic(const string& first, stringstream& rest) {
-    if (first != "INC" && first != "DEC" && first != "ADD" && first != "SUB" && first != "MUL" && first != "DIV" && first != "MOV") return nullptr;
+    if (first != "INC" && first != "DEC" && first != "ADD" && first != "SUB" && first != "MUL" && first != "DIV" && first != "MOV") return nullptr; // if this word isn't on our specific list of math/move commands, ignore it and return nullptr so the next parser can try to read it
     string dest, value;
-    if (first == "INC" || first == "DEC") {
-        rest >> dest; 
-        if (dest.empty()) throw SyntaxException("Missing register for: " + first);
-        if (dest.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first);
-        if (dest.back() == ',') throw SyntaxException("Unexpected comma in: " + dest);
-        return new ArithmeticInstruction(first, numberReg(dest)); }
-    rest >> dest >> value;
-    if (dest.empty()) throw SyntaxException("Missing operands for command: " + first);
-    if (dest.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first); // catches: ADD ,5
-    if (value.empty()) {
-        if (dest.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + dest);
-        if (dest.back() == ',') throw SyntaxException("Missing value: " + dest);
-        throw SyntaxException("Missing space after comma in: " + rest.str()); }
-    if (dest.back() != ',') throw SyntaxException("Missing comma: " + dest + " " + value);
+    if (first == "INC" || first == "DEC") { // scene 1: INC DEC
+        rest >> dest; // read the single target register
+        if (dest.empty()) throw SyntaxException("Missing register for: " + first); // check 1: check if no register is stated
+        if (dest.front() == ',') throw SyntaxException("Unexpected comma before: " + dest); // check 2: catches if INC ",R0"
+        if (dest.back() == ',') throw SyntaxException("Unexpected comma in: " + dest); // check 3: catches if "R0,"
+        return new ArithmeticInstruction(first, numberReg(dest)); } // build the instruction, numberReg checks
+    rest >> dest >> value; // scene 2: ADD SUB MUL DIV MOV, try to read both parts
+    if (dest.empty()) throw SyntaxException("Missing operands for command: " + first); // check 1: check missing first piece
+    if (dest.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first); // check 2: catches if they typed "ADD ,5"
+    if (value.empty()) { // check 3: if the second piece is missing
+        if (dest.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + dest); // if there isn't a comma anywhere in the first word, (eg, "ADD R1 R2")
+        if (dest.back() == ',') throw SyntaxException("Missing value: " + dest); // if the first word have a comma at the end, they just forgot the value (eg, "ADD R1,")
+        throw SyntaxException("Missing space after comma in: " + rest.str()); } // if they glued it all together without a space (eg, "ADD R1,R2"), it gets stuck in dest
+    if (dest.back() != ',') throw SyntaxException("Missing comma: " + dest + " " + value); // check 4: ensure the comma is exactly at the end of the first word (eg, "R1,")
     dest.pop_back(); // clean ending comma
-    int reg = numberReg(dest); 
-    if (first == "MOV") return handleMove(reg, value); 
-    if (value[0] == 'R' || value[0] == 'r') return new ArithmeticInstruction(first, reg, numberReg(value), false);
+    int reg = numberReg(dest); // convert the string into a real integer index 
+    if (first == "MOV") return handleMove(reg, value); // if it's a MOV command, send it to MOV sorting function
+    if (value[0] == 'R' || value[0] == 'r') return new ArithmeticInstruction(first, reg, numberReg(value), false); // if the second value starts with 'R' or 'r', they want to do math with another register
     else {
-        if (!isNumber(value)) throw SyntaxException("Expected a number for " + first + ", but got: " + value);
+        if (!isNumber(value)) throw SyntaxException("Expected a number for " + first + ", but got: " + value); // if not, they want to do math with a raw number
         return new ArithmeticInstruction(first, reg, stoi(value), true); 
     }
 }
 
 Instruction* Runner::parseIOAndStack(const string& first, stringstream& rest) {
-    if (first != "INPUT" && first != "DISPLAY" && first != "PUSH" && first != "POP") return nullptr; 
+    if (first != "INPUT" && first != "DISPLAY" && first != "PUSH" && first != "POP") return nullptr; // if the word isn't an IO or Stack command, ignore it and return nullptr so the next parser in line can try to read it
     string a;
-    rest >> a;
-    if (a.empty()) throw SyntaxException("Missing register operand for command: " + first);
-    if (a.back() == ',') throw SyntaxException("Unexpected comma after register in: " + a);
-    if (first == "INPUT" || first == "DISPLAY") return new IOInstruction(first, numberReg(a));
-    else return new StackInstruction(first, numberReg(a), virtualMachine.getSystemStack());
+    rest >> a; // read the target register
+    if (a.empty()) throw SyntaxException("Missing register operand for command: " + first); // check 1: did they just type the command and forget the register
+    if (a.back() == ',') throw SyntaxException("Unexpected comma after register in: " + a); // check 2: since these are strict 1 operand commands, a comma should never exist here
+    if (first == "INPUT" || first == "DISPLAY") return new IOInstruction(first, numberReg(a)); // scene 1: Input/Output , create an IO Instruction
+    else return new StackInstruction(first, numberReg(a), virtualMachine.getSystemStack()); // scene 2: Stack, create a Stack Instruction
 }
 
 Instruction* Runner::parseLoadStore(const string& first, stringstream& rest){
-    if (first != "LOAD" && first != "STORE") return nullptr; 
+    if (first != "LOAD" && first != "STORE") return nullptr; // if this isn't a memory command, ignore it and return nullptr
     string a, b;
-    rest >> a >> b;
-    if (a.empty()) throw SyntaxException("Missing operands for command: " + first);
-    if (a.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first);
+    rest >> a >> b; // try to read both parts
+    if (a.empty()) throw SyntaxException("Missing operands for command: " + first); // catches empty operands
+    if (a.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first); // catches: LOAD ,[20]
     if (b.empty()) {
         if (a.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + a);
         if (a.back() == ',') throw SyntaxException("Missing value operand for command: " + first);
         else throw SyntaxException("Missing space after comma in: " + rest.str()); }
     if (a.back() != ',') throw SyntaxException("Missing comma after first operand in: " + a + " " + b); 
-    a.pop_back();
-    if (first == "LOAD"){
-        if (b.front() == '[') {
+    a.pop_back(); // clean the ending comma off the first operand
+    if (first == "LOAD"){ // scene 1: LOAD command
+        if (b.front() == '[') { // LOAD absolutely requires brackets on the second piece of data
             if(b.back() != ']') throw SyntaxException("Missing a ']' at the back of LOAD");
             if(b.length() < 3) throw SyntaxException("Empty memory address bracket at LOAD");
-            b = b.substr(1, b.length() -2); 
-            if (b[0] == 'R' || b[0] == 'r') return new MoveInstruction(4, numberReg(a), numberReg(b));
-            if (!isNumber(b)) throw SyntaxException("Expected a memory address number, but got: " + b);
-            return new LoadStoreInstruction(1, numberReg(a), static_cast<signed char>(stoi(b))); } 
+            b = b.substr(1, b.length() -2);  // strip the brackets off (eg, turn "[20]" into "20")
+            if (b[0] == 'R' || b[0] == 'r') return new MoveInstruction(4, numberReg(a), numberReg(b)); // LOAD R1, [R2], if the inside of the bracket is a register, treat it as a Move Instruction
+            if (!isNumber(b)) throw SyntaxException("Expected a memory address number, but got: " + b); // pass it through the security checkpoint to ensure it's a valid number
+            return new LoadStoreInstruction(1, numberReg(a), static_cast<signed char>(stoi(b))); } // LOAD R1, [20], 
             else throw SyntaxException("LOAD memory address must be in brackets near: " + a + ", " + b); }
-    if (first == "STORE"){
-        if (b.front() == '['){
+    if (first == "STORE"){ // scene 2: STORE command
+        if (b.front() == '['){ // STORE R1, [R2]
             if(b.back() != ']') throw SyntaxException("Missing a ']' at the back of STORE");
             if(b.length() < 3) throw SyntaxException("Empty memory address bracket at STORE");
-            b = b.substr(1, b.length() - 2); 
-            if (b[0] != 'R' && b[0] != 'r') throw SyntaxException("Unexpected bracketed number/address in STORE: [" + b + "]");
+            b = b.substr(1, b.length() - 2); // strip the brackets off
+            if (b[0] != 'R' && b[0] != 'r') throw SyntaxException("Unexpected bracketed number/address in STORE: [" + b + "]"); // For STORE with brackets, the inside must be a register
             return new LoadStoreInstruction(3, numberReg(a), numberReg(b)); }
-        else if (a[0] == 'R' || a[0]== 'r') {
+        else if (a[0] == 'R' || a[0]== 'r') { // STORE R1, 43, register first
             if (!isNumber(b)) throw SyntaxException("Invalid STORE syntax. Expected STORE Rn, number or STORE Rn, [Rm], but got: STORE " + a + ", " + b);
             return new LoadStoreInstruction(2, numberReg(a), static_cast<signed char>(stoi(b))); }
-        else  {if (!isNumber(a)) throw SyntaxException("Expected a memory address number, but got: " + a);
+        else  {if (!isNumber(a)) throw SyntaxException("Expected a memory address number, but got: " + a); //STORE 43, R1. address first
             return new LoadStoreInstruction(2, numberReg(b), static_cast<signed char>(stoi(a))); } }
     return nullptr;
 }
