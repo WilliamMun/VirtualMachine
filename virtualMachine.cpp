@@ -1650,27 +1650,22 @@ bool Runner::isBlankLine(string dummy)
 string Runner::format4(int num)
 {
     stringstream belt;
-    // setfill('0') tells it to use zeroes.
-    // setw(4) tells it to make sure the string is exactly 4 characters wide.
-    belt << internal << setfill('0') << setw(4) << num;
+    belt << internal << setfill('0') << setw(4) << num; // setfill('0') tells it to use zeroes, setw(4) tells it to make sure the string is exactly 4 characters wide
     return belt.str(); //  convert the stream back into a normal string
 }
 
-bool Runner::isNumber(const string& str) {
+bool Runner::isNumber(const string& str) 
+{
     if (str.empty()) return false;
-    
     int start = 0;
-    // Allow negative or positive signs
-    if (str[0] == '-' || str[0] == '+') {
+    if (str[0] == '-' || str[0] == '+') { //allow negative or positive signs
         if (str.length() == 1) return false; 
         start = 1;
     }
     
-    // Prevent std::out_of_range crashes for massive numbers
-    if (str.length() - start > 9) return false; 
+    if (str.length() - start > 9) return false; // prevent std::out_of_range crashes for massive numbers
     
-    // Ensure every character is a digit
-    for (int i = start; i < str.length(); i++) {
+    for (int i = start; i < str.length(); i++) { // ensure every character is a digit
         if (str[i] < '0' || str[i] > '9') return false;
     }
     return true;
@@ -1721,44 +1716,26 @@ Instruction* Runner::handleMove(int reg, string value) {
 
 Instruction* Runner::MathAndLogic(const string& first, stringstream& rest) {
     if (first != "INC" && first != "DEC" && first != "ADD" && first != "SUB" && first != "MUL" && first != "DIV" && first != "MOV") return nullptr;
-
     string dest, value;
-    
     if (first == "INC" || first == "DEC") {
         rest >> dest; 
         if (dest.empty()) throw SyntaxException("Missing register for: " + first);
         if (dest.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first);
         if (dest.back() == ',') throw SyntaxException("Unexpected comma in: " + dest);
-        return new ArithmeticInstruction(first, numberReg(dest));
-    }
-
+        return new ArithmeticInstruction(first, numberReg(dest)); }
     rest >> dest >> value;
-
     if (dest.empty()) throw SyntaxException("Missing operands for command: " + first);
-    
-    // Ultimate Comma Guard (Catches: ADD ,5)
-    if (dest.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first);
-    
+    if (dest.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first); // catches: ADD ,5
     if (value.empty()) {
         if (dest.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + dest);
         if (dest.back() == ',') throw SyntaxException("Missing value: " + dest);
-        throw SyntaxException("Missing space after comma in: " + rest.str());
-    }
+        throw SyntaxException("Missing space after comma in: " + rest.str()); }
     if (dest.back() != ',') throw SyntaxException("Missing comma: " + dest + " " + value);
-
-    dest.pop_back(); // Clean trailing comma
-
+    dest.pop_back(); // clean ending comma
     int reg = numberReg(dest); 
-
-    if (first == "MOV") {
-        return handleMove(reg, value); 
-    }
-        
-    if (value[0] == 'R' || value[0] == 'r'){
-        return new ArithmeticInstruction(first, reg, numberReg(value), false); 
-    } 
+    if (first == "MOV") return handleMove(reg, value); 
+    if (value[0] == 'R' || value[0] == 'r') return new ArithmeticInstruction(first, reg, numberReg(value), false);
     else {
-        // Guarded Immediate
         if (!isNumber(value)) throw SyntaxException("Expected a number for " + first + ", but got: " + value);
         return new ArithmeticInstruction(first, reg, stoi(value), true); 
     }
@@ -1766,112 +1743,68 @@ Instruction* Runner::MathAndLogic(const string& first, stringstream& rest) {
 
 Instruction* Runner::parseIOAndStack(const string& first, stringstream& rest) {
     if (first != "INPUT" && first != "DISPLAY" && first != "PUSH" && first != "POP") return nullptr; 
-
     string a;
     rest >> a;
-
     if (a.empty()) throw SyntaxException("Missing register operand for command: " + first);
     if (a.back() == ',') throw SyntaxException("Unexpected comma after register in: " + a);
-
-    if (first == "INPUT" || first == "DISPLAY"){
-        return new IOInstruction(first, numberReg(a));
-    }
-    else {
-        return new StackInstruction(first, numberReg(a), virtualMachine.getSystemStack());
-    }
+    if (first == "INPUT" || first == "DISPLAY") return new IOInstruction(first, numberReg(a));
+    else return new StackInstruction(first, numberReg(a), virtualMachine.getSystemStack());
 }
 
 Instruction* Runner::parseLoadStore(const string& first, stringstream& rest){
     if (first != "LOAD" && first != "STORE") return nullptr; 
-
     string a, b;
     rest >> a >> b;
-
     if (a.empty()) throw SyntaxException("Missing operands for command: " + first);
-    
-    // Ultimate Comma Guard
     if (a.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first);
-    
     if (b.empty()) {
         if (a.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + a);
         if (a.back() == ',') throw SyntaxException("Missing value operand for command: " + first);
-        else throw SyntaxException("Missing space after comma in: " + rest.str()); 
-    }
+        else throw SyntaxException("Missing space after comma in: " + rest.str()); }
     if (a.back() != ',') throw SyntaxException("Missing comma after first operand in: " + a + " " + b); 
-     
     a.pop_back();
-
     if (first == "LOAD"){
         if (b.front() == '[') {
             if(b.back() != ']') throw SyntaxException("Missing a ']' at the back of LOAD");
             if(b.length() < 3) throw SyntaxException("Empty memory address bracket at LOAD");
             b = b.substr(1, b.length() -2); 
-            
             if (b[0] == 'R' || b[0] == 'r') return new MoveInstruction(4, numberReg(a), numberReg(b));
-
-            // Guarded Address
             if (!isNumber(b)) throw SyntaxException("Expected a memory address number, but got: " + b);
-            return new LoadStoreInstruction(1, numberReg(a), static_cast<signed char>(stoi(b)));
-        } else {
-            throw SyntaxException("LOAD memory address must be in brackets near: " + a + ", " + b);
-        }
-    }
-
+            return new LoadStoreInstruction(1, numberReg(a), static_cast<signed char>(stoi(b))); } 
+            else throw SyntaxException("LOAD memory address must be in brackets near: " + a + ", " + b); }
     if (first == "STORE"){
         if (b.front() == '['){
             if(b.back() != ']') throw SyntaxException("Missing a ']' at the back of STORE");
             if(b.length() < 3) throw SyntaxException("Empty memory address bracket at STORE");
             b = b.substr(1, b.length() - 2); 
-
             if (b[0] != 'R' && b[0] != 'r') throw SyntaxException("Unexpected bracketed number/address in STORE: [" + b + "]");
-            return new LoadStoreInstruction(3, numberReg(a), numberReg(b)); 
-        }
+            return new LoadStoreInstruction(3, numberReg(a), numberReg(b)); }
         else if (a[0] == 'R' || a[0]== 'r') {
-            // Guarded Address (STORE R1, 43)
             if (!isNumber(b)) throw SyntaxException("Invalid STORE syntax. Expected STORE Rn, number or STORE Rn, [Rm], but got: STORE " + a + ", " + b);
-            return new LoadStoreInstruction(2, numberReg(a), static_cast<signed char>(stoi(b))); 
-        }
-        else  {
-            // Guarded Address (STORE 43, R1)
-            if (!isNumber(a)) throw SyntaxException("Expected a memory address number, but got: " + a);
-            return new LoadStoreInstruction(2, numberReg(b), static_cast<signed char>(stoi(a))); 
-        }
-    }
+            return new LoadStoreInstruction(2, numberReg(a), static_cast<signed char>(stoi(b))); }
+        else  {if (!isNumber(a)) throw SyntaxException("Expected a memory address number, but got: " + a);
+            return new LoadStoreInstruction(2, numberReg(b), static_cast<signed char>(stoi(a))); } }
     return nullptr;
 }
 
 Instruction* Runner::ShiftAndReset(const string& first, stringstream& rest) {
     if (first != "RESET" && first != "SHL" && first != "SHR" && first != "ROL" && first != "ROR") return nullptr;
-
     string a, b;
     rest >> a;
     if (a.empty()) throw SyntaxException("Missing operands for command: " + first);
-    
-    // Ultimate Comma Guard
     if (a.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first);
-
     if (first == "RESET"){
         if (a.back() == ',') throw SyntaxException("Unexpected comma in RESET: " + a);
-        
-        // Strict Flag Verification
-        if (a != "CF" && a != "OF" && a != "ZF" && a != "UF") {
-            throw SyntaxException("Invalid flag name for RESET: " + a);
-        }
+        if (a != "CF" && a != "OF" && a != "ZF" && a != "UF") throw SyntaxException("Invalid flag name for RESET: " + a);
         return new ResetFlagsInstruction(a);
     }
-
     rest >> b;
-
     if (b.empty()) {
         if (a.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + a);
         if (a.back() == ',') throw SyntaxException("Missing value: " + a);
-        throw SyntaxException("Missing space after comma in: " + rest.str());
-    }
+        throw SyntaxException("Missing space after comma in: " + rest.str()); }
     if (a.back() != ',') throw SyntaxException("Missing comma: " + a + " " + b);
-
     a.pop_back();
-
-    // Guarded Immediate
     if (!isNumber(b)) throw SyntaxException("Expected a shift count number, but got: " + b);
     return new ShiftInstruction(first, numberReg(a), stoi(b));
 }
@@ -1879,19 +1812,15 @@ Instruction* Runner::ShiftAndReset(const string& first, stringstream& rest) {
 string Runner::buildCpuStateString()
 {
     stringstream out;
-    out << "#Begin#\n";
-        
+    out << "#Begin#\n"; 
     out << "#Registers#";
     for (int i = 0; i < 8; i++) {
         out << format4((int)virtualMachine.getRegister(i)->getValue()) << "#";
     }
     out << "\n";
-
     FlagRegister* f = virtualMachine.getFlags();
     out << "#Flags#OF#" << f->getOF() << "#UF#" << f->getUF() << "#CF#" << f->getCF() << "#ZF#" << f->getZF() << "#\n";
-
     out << "#PC#" << format4((int)virtualMachine.getPC()) << "#\n";
-        
     return out.str();
 }
 
@@ -1905,13 +1834,11 @@ void Runner::decodeAndStore(string currentLine){
     stringstream lineStream(currentLine); // turn the string into a stream to read word by word
         string first;
         lineStream >> first; // read the first word (eg. ADD)
-
         // try to translate the instruction by passing it into our 3 parser functions, if the first cant handle it, then returns nullptr, so we try MemAndIO
         Instruction* inst = MathAndLogic(first, lineStream);
         if (!inst) inst = parseIOAndStack(first, lineStream);
         if (!inst) inst = parseLoadStore(first, lineStream);
         if (!inst) inst = ShiftAndReset(first, lineStream);
-        
         // if one of the parsers successfully created an instruction, save it
         if (inst) {
             // --- NEW STRICT CHECK: Prevent multiple commands on one line ---
@@ -1922,56 +1849,35 @@ void Runner::decodeAndStore(string currentLine){
         else throw SyntaxException("Invalid syntax found: " + first);
 }
 
-void Runner::loadProgram(const string& filename, const string& outputFilename)
-{
+void Runner::loadProgram(const string& filename, const string& outputFilename) {
     ifstream file(filename);
     if(!file.is_open()) throw FileException(filename, "File is not found or cannot be opened."); 
-    
     ofstream outFile(outputFilename);
     if (!outFile.is_open()) {
         file.close();
-        throw FileException(outputFilename, "Output file cannot be created.");
-    }
-
-    //store into queue
+        throw FileException(outputFilename, "Output file cannot be created."); }
     CustomQueue<string> lineQueue;
     CustomQueue<int> lineNumberQueue;
     string line;
     int fileLineNumber = 0;
-
-    // read every line from the file, and put it in a queue
-    while(getline(file,line))
-    {
+    while(getline(file,line)) { // read every line from the file, and put it in a queue
         fileLineNumber++;
         if(isBlankLine(line)) continue; // skip empty lines
         lineQueue.enqueue(line); // put the line back at the queue
-        lineNumberQueue.enqueue(fileLineNumber);
-    }
+        lineNumberQueue.enqueue(fileLineNumber); }
     file.close(); // close the file when done
-
-    // take lines out the queue one by one, translate them and put them into a vector
-    while (!lineQueue.isEmpty())
-    {
+    while (!lineQueue.isEmpty()) {
         string currentLine = lineQueue.front();
         int currentLineNumber = lineNumberQueue.front();
-
-        // convert to uppercase
-        for (char &c : currentLine) c = toupper(c);
-
-        try {
-            decodeAndStore(currentLine);
-        }
+        for (char &c : currentLine) c = toupper(c); // convert to uppercase
+        try { decodeAndStore(currentLine); }
         catch (VMException& e) {
             outFile << "Error at line " << currentLineNumber << ": " << e.getErrorMessage() << "\n";
             outFile << "Instruction: " << lineQueue.front() << "\n";
             outFile.close();
-
-            throw RunTimeCrashException("Syntax error at line " + to_string(currentLineNumber) + ": " + e.getErrorMessage());
-        }
-
+            throw RunTimeCrashException("Syntax error at line " + to_string(currentLineNumber) + ": " + e.getErrorMessage()); }
         lineQueue.dequeue();
-        lineNumberQueue.dequeue();
-    }
+        lineNumberQueue.dequeue(); }
     outFile.close();
 }
 
@@ -1979,12 +1885,7 @@ void Runner::executeProgram(const string& outputFilename)
 {
     ofstream outFile;
     outFile.open(outputFilename);
-
-    // try-catch blocks protect the program from crashing
-    // try {
-    // loop through our vector of instructions from top to bottom
-    for (int i = 0; i < program.size(); i++)
-    {
+    for (int i = 0; i < program.size(); i++) {
         try{
             // tell the specific instruction to execute itself on our virtual machine
             program.at(i) ->execute(virtualMachine); // move the program counter forward by 1
@@ -2014,7 +1915,6 @@ void Runner::dumpStateToScreen()
 void Runner::dumpStateToFile(ofstream& outFile)
 {
     outFile << buildCpuStateString();
-
     outFile << "#Memory#\n";
     Memory* mem = virtualMachine.getMemory();
     for (int row = 0; row < 8; row++) {
@@ -2025,14 +1925,12 @@ void Runner::dumpStateToFile(ofstream& outFile)
         }
         outFile << "\n"; 
     }
-
     outFile << "#End#\n";
 }
 
 int main() {
     Runner interpreter;
     string filename;
-
     try{
         cout << "Enter the name of the assembly file you want to run (eg., test.asm): ";
         cin >> filename;
