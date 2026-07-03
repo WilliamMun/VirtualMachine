@@ -514,12 +514,14 @@ class FlagRegister {
         /**
          * @brief        Check whether the result of an arithmetic operation contains carry.
          * @param op     String that storing the type of arithmetic operation
+         * @param oper1  Leftside operand of an arithmetic operation
+         * @param oper2  Rightside operand of an arithmetic operation
          * @param result The result of the arithmetic operation
          * @note         'int' is used so that the 9th bit which represent the carry bit can be detected.
          * @return       Boolean value which represent whether the result contains carry.
          * @author       Mun William
          */
-        bool checkCF(string op, int result);
+        bool checkCF(string op, unsigned char oper1, unsigned char oper2, int result);
 
         /**
          * @brief        Check whether the result of an arithmetic operation is overflow.
@@ -1521,12 +1523,14 @@ CustomQueue<T> &CustomQueue<T>::operator=(const CustomQueue<T> &right)
     return *this;
 }
 
-bool FlagRegister::checkCF(string op, int result)
+bool FlagRegister::checkCF(string op, unsigned char oper1, unsigned char oper2, int result)
 {
-    if(op == "ADD")
-        return ((result & 0x100) != 0); 
+    if(op == "ADD"){
+        int unsignedSum = static_cast<int>(oper1) + static_cast<int>(oper2);
+        return ((unsignedSum & 0x100) != 0);
+    }
     else if(op == "SUB")
-        return (result < 0);
+        return (oper1 < oper2);
     else if(op == "MUL")
         return (result > 255 || result < 0);
     else 
@@ -1555,7 +1559,7 @@ bool FlagRegister::checkUF(string op, unsigned char oper1, unsigned char oper2, 
 
 void FlagRegister::flagArithmeticSetter(string op, unsigned char oper1, unsigned char oper2, int result)
 {
-    setCF(checkCF(op, result));
+    setCF(checkCF(op, oper1, oper2, result));
     setOF(checkOF(op, oper1, oper2, result));
     setUF(checkUF(op, oper1, oper2, result));
     setZF(checkZF(static_cast<signed char>(result)));
@@ -1713,17 +1717,21 @@ void MoveInstruction::execute(CPU& cpu)
 {
     Memory* memory = cpu.getMemory(); // fetch the pointer to memory
     FlagRegister* flags = cpu.getFlags();
+    int flagCheckValue;
     if (mode == 1){ //MOV register, intermediate
         cpu.getRegister(destI)->setValue(static_cast<signed char>(sourceI));
+        flagCheckValue = sourceI;
     } else if (mode == 2){ // MOV register, register
         cpu.getRegister(destI)->setValue(cpu.getRegister(sourceI)->getValue());
+        flagCheckValue = cpu.getRegister(destI)->getValue();
     } else if (mode == 3 || mode == 4){ // MOV register, [register] or LOAD register, [register] 
         int address = cpu.getRegister(sourceI)->getValue(); //get address stored inside the register
         int dataFromMemory = memory->read(address); //fetch data from that memory address
         cpu.getRegister(destI)->setValue(dataFromMemory); // store it in destination register
+        flagCheckValue = cpu.getRegister(destI)->getValue();
     }
 
-    flags->flagIOSetter(cpu.getRegister(destI)->getValue());
+    flags->flagIOSetter(flagCheckValue);
 }
 
 void IOInstruction::execute(CPU& cpu)
@@ -2003,25 +2011,25 @@ Instruction* Runner::parseLoadStore(const string& first, stringstream& rest){
 }
 
 Instruction* Runner::ShiftAndReset(const string& first, stringstream& rest) {
-    if (first != "RESET" && first != "SHL" && first != "SHR" && first != "ROL" && first != "ROR") return nullptr;
+    if (first != "RESET" && first != "SHL" && first != "SHR" && first != "ROL" && first != "ROR") return nullptr; // if this isn't a reset or shift command, ignore it and return nullptr
     string a, b;
-    rest >> a;
-    if (a.empty()) throw SyntaxException("Missing operands for command: " + first);
-    if (a.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first);
-    if (first == "RESET"){
-        if (a.back() == ',') throw SyntaxException("Unexpected comma in RESET: " + a);
-        if (a != "CF" && a != "OF" && a != "ZF" && a != "UF") throw SyntaxException("Invalid flag name for RESET: " + a);
+    rest >> a; // read the first operand
+    if (a.empty()) throw SyntaxException("Missing operands for command: " + first); // check 1: did they type the command but forget to give any operands
+    if (a.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first); // check 2: catch accidental leading commas (eg, "RESET ,CF")
+    if (first == "RESET"){ // scene 1: reset command
+        if (a.back() == ',') throw SyntaxException("Unexpected comma in RESET: " + a); // since reset only takes one flag name, there should never be a comma
+        if (a != "CF" && a != "OF" && a != "ZF" && a != "UF") throw SyntaxException("Invalid flag name for RESET: " + a); // ensure the target is one of the 4 valid flags
         return new ResetFlagsInstruction(a);
     }
     rest >> b;
-    if (b.empty()) {
+    if (b.empty()) { // scene 2: bitwise shift command
         if (a.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + a);
         if (a.back() == ',') throw SyntaxException("Missing value: " + a);
         throw SyntaxException("Missing space after comma in: " + rest.str()); }
-    if (a.back() != ',') throw SyntaxException("Missing comma: " + a + " " + b);
-    a.pop_back();
-    if (!isNumber(b)) throw SyntaxException("Expected a shift count number, but got: " + b);
-    return new ShiftInstruction(first, numberReg(a), stoi(b));
+    if (a.back() != ',') throw SyntaxException("Missing comma: " + a + " " + b); // ensure the first operand ends with a comma (eg, "R1,")
+    a.pop_back(); // remove the trailing comma so we are left with a clean register string (like "R1")
+    if (!isNumber(b)) throw SyntaxException("Expected a shift count number, but got: " + b); // pass the shift count to make sure it's a valid number
+    return new ShiftInstruction(first, numberReg(a), stoi(b)); // build the shift instruction
 }
 
 string Runner::buildCpuStateString()
@@ -2090,7 +2098,8 @@ void Runner::loadProgram(const string& filename, const string& outputFilename) {
             outFile << "Error at line " << currentLineNumber << ": " << e.getErrorMessage() << "\n";
             outFile << "Instruction: " << lineQueue.front() << "\n";
             outFile.close();
-            throw RunTimeCrashException("Syntax error at line " + to_string(currentLineNumber) + ": " + e.getErrorMessage()); }
+            throw RunTimeCrashException("AT LINE " + to_string(currentLineNumber) + " >> " + e.getErrorMessage());
+        }
         lineQueue.dequeue();
         lineNumberQueue.dequeue(); }
     outFile.close();
