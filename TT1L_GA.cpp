@@ -2164,6 +2164,10 @@ void Runner::dumpStateToFile(ofstream& outFile)
     outFile << "#End#\n";  // to signify the end of the file transmission
 }
 
+/**
+ * @brief  Main program that implement the interpreter.
+ * @author Wong Qian Xian
+ */
 int main() {
     Runner interpreter; // Instantiate the primary execution controller responsible for the CPU and memory subsystems
     string filename;
@@ -2173,7 +2177,7 @@ int main() {
         
         if(filename.length() < 4 || filename.substr(filename.length() - 4) != ".asm") // verify that the filename string is long enough to contain an extension and terminates in ".asm"
             throw FileException(filename, "Invalid input file type- " + filename + ".\nMust be a .asm file.");
-    } catch (VMException& e){
+    } catch (VMException& e){ ///< @note Added by Mun William: Added try-catch block for detecting FileException
         cerr << e.getErrorMessage() << endl;
         return 1;
     } 
@@ -2185,8 +2189,8 @@ int main() {
     try{ // phase 3: program loading & execution
         interpreter.loadProgram(filename, outName); // pass the input file for syntax decoding and pass the output filename for diagnostic logging
         interpreter.executeProgram(outName); // initiate the CPU execution cycle, directing runtime logs to the constructed output file
-    } catch (VMException& e){ // catch syntax exceptions from loadProgram() or hardware exceptions from executeProgram()
-        cerr << e.getErrorMessage() << endl;
+    } catch (VMException& e){ // catch syntax exceptions from loadProgram() or hardware exceptions from executeProgram() 
+        cerr << e.getErrorMessage() << endl; ///< @note Added by Mun William: Added try-catch block for detecting VMException
         return 1;
     }
 
