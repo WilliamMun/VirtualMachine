@@ -731,31 +731,115 @@ class Memory {
         void displayMemory();
 };
 
-// Contains registers, memory, PC, and executes instructions
-// holds data, keep track where the program is, manages temporary storage
+/**
+ * @brief   A class representing the central processing unit of the virtual machine
+ * @details The CPU acts as the brain that contains the data registers (R0-R7), flag registers, and main memory
+ * It keeps track of the program execution flow using the Program Counter (PC) 
+ * and manages temporary data storage using the Stack Index (SI) and system stack
+ * @author  Wong Qian Xian
+ */
 class CPU {
     private:
-        DataRegister R[8];     // R0 to R7
-        FlagRegister flags;       // Aggregated flags (0 or 1 signals)
-        Memory memory;            // Composed memory
-        unsigned char PC;         // Program Counter, remembers which line of the assembly program is reading (1 byte, starts at 0)
-        unsigned char SI;         // Stack Index, count of how many things piled up (1 byte, starts at 0)
-        CustomStack<signed char> systemStack; // Temporary store number
+        DataRegister R[8]; // array of 8 data registers representing R0 to R7
+        FlagRegister flags; // // aggregated flags storing 0 or 1 signals for machine states
+        Memory memory; // memory instance used by the virtual machine to store and load data
+        int PC; // program counter remembers which line of the assembly program is currently executing (starts at 0)
+        unsigned char SI; // stack index tracks how many items are piled up in the stack. (starts at 0)
+        CustomStack<signed char> systemStack; // temporary storage stack to hold numbers pushed during execution
 
     public:
-        CPU() : PC(0), SI(0) {} // sets the program counter and stack index to 0 when cpu is first created
-        // Getters to allow instructions to manipulate CPU state
-        DataRegister* getRegister(int index); // returns pointer to a specific data register, pointer gives the runner the memory address of the pointer
-        FlagRegister* getFlags() { return &flags; } // returns pointer to flag registers so the runner can check or update them
-        Memory* getMemory() { return &memory; } // returns a pointer to the main memory so the runner can load or store data
+        /** * @brief Constructs a CPU object and initializes system counters
+         * @post  The program counter and stack index are both initialized to 0
+         * @author Wong Qian Xian
+         */
+        CPU() : PC(0), SI(0) {} 
+
+        /**
+         * @brief  Retrieves a pointer to a specific data register
+         * @param  index The integer index (0-7) specifying which data register to retrieve
+         * @return A pointer to the requested DataRegister object, giving the runner its memory address
+         * @author Wong Qian Xian
+         */
+        DataRegister* getRegister(int index); 
+
+        /**
+         * @brief  Retrieves a pointer to the flag register.
+         * @return A pointer to the FlagRegister so the runner can check or update system flags
+         * @author Wong Qian Xian
+         */
+        FlagRegister* getFlags() { return &flags; } 
+
+        /**
+         * @brief  Retrieves a pointer to the main memory.
+         * @return A pointer to the Memory object allowing the runner to load or store data
+         * @author Wong Qian Xian
+         */
+        Memory* getMemory() { return &memory; } 
+
+        /**
+         * @brief  Retrieves a reference to the system stack
+         * @return A reference to the CustomStack holding signed characters
+         * @author Wong Qian Xian
+         */
         CustomStack<signed char>& getSystemStack() {return systemStack;}
-        unsigned char getPC() const { return PC; } // return the current line the Program Counter is on, const prevent changes on PC value
-        void incrementPC() { PC++; } // runner calls this after finishing an instruction, move program counter forward by 1, cpu knows to move to next line
-        unsigned char getSI() const { return SI; } //return the current number of items piled in the stack
-        void incrementSI() { SI++; } // increases stack index by 1 when a new item is added to stack
-        void decrementSI() { SI--; } // decreases stack index by 1 when a new item is removed from stack
+
+        /**
+         * @brief  Returns the current program counter value
+         * @note   The const keyword ensures that the program counter value cannot be modified through this getter
+         * @return The current line number the PC is on as an unsigned character
+         * @author Wong Qian Xian
+         */
+        int getPC() const { return PC; }
+
+        /**
+         * @brief  Moves the program counter forward.
+         * @post   The PC value is increased by 1, signaling the CPU to move to the next line of instruction
+         * @author Wong Qian Xian
+         */
+        void incrementPC() { PC++; } 
+
+        /**
+         * @brief  Returns the current stack index value
+         * @note   The const keyword ensures that the stack index value cannot be modified through this getter
+         * @return The current number of items piled in the stack as an unsigned character
+         * @author Wong Qian Xian
+         */
+        unsigned char getSI() const { return SI; } 
+
+        /**
+         * @brief  Increases the stack index
+         * @post   The SI value is increased by 1 to reflect a new item added to the stack
+         * @author Wong Qian Xian
+         */
+        void incrementSI() { SI++; } 
+
+        /**
+         * @brief  Decreases the stack index
+         * @post   The SI value is decreased by 1 to reflect an item being removed from the stack
+         * @author Wong Qian Xian
+         */
+        void decrementSI() { SI--; } 
+
+        /**
+         * @brief  Adds a new value to the top of the system stack
+         * @param  value The signed character number to be pushed into the stack
+         * @post   The value is stored in the stack and the SI is effectively increased
+         * @author Wong Qian Xian
+         */
         void pushToStack(signed char value);
-        signed char popFromStack(); // removes the top value from stack and gives it back to caller, & modifies the variable that runner passed into function directly
+
+        /**
+         * @brief  Removes the top value from the stack and returns it
+         * @details Safely attempts to read and remove the top item from the virtual machine's stack
+         * If the stack is already empty, it catches the internal logic error and translates 
+         * it into a fatal hardware exception to halt the virtual machine
+         * @pre The system stack should contain at least one item
+         * @post The top item is removed from the data structure, and the Stack Index (SI) is decreased by 1
+         * @throws HardwareException if the stack is empty, indicating a stack underflow
+         * @return The signed character value that was retrieved from the top of the stack
+         * @author wong qian xian
+         */
+        signed char popFromStack();
 };
 
 /**
@@ -1101,34 +1185,181 @@ class StackInstruction : public Instruction {
         const char* getCommand() const override { return operation.c_str(); }
 };
 
-// Loads programs, decodes instructions, delegates execution to CPU
+/**
+ * @brief  Operates the execution of the virtual machine.
+ * @details The Runner class acts as the bridge between the user's assembly text file and the CPU
+ * It reads the file, validates the syntax, decodes the text into executable Instruction objects
+ * and then delegates the execution of those instructions to the composed CPU. 
+ * It also handles all system state output to the console and log files.
+ * @author  Wong Qian Xian
+ */
 class Runner {
     private:
-        CPU virtualMachine; // Composition, actual virtual machine that will do math and store data
-        CustomVector<Instruction*> program; // dynamic array vector that hold pointers to instructions
-        // uses polymorphism, holds generic instruction pointers, but they will point to specific types
+        // Composition: The actual virtual machine instance that performs mathematical operations and memory storage
+        CPU virtualMachine;
 
-        bool isBlankLine(string dummy); // helper function, checks if a line is empty or just spaces
-        string format4(int num); // Helper function to pad numbers with leading zeroes (eg. 5 into 0005)
+        // A dynamic array vector holding polymorphic base pointers to the specific parsed Instruction objects
+        CustomVector<Instruction*> program; 
+
+        /**
+         * @brief   Checks if a line of text is entirely empty or consists only of whitespace
+         * @details Iterates through every character in the provided string to verify if it contains
+         * It specifically checks for standard whitespace characters including spaces, tabs, carriage returns, and newlines
+         * This is primarily used to safely skip empty lines while parsing the assembly file
+         * @param   dummy The string representing a single line of text from the input file
+         * @return  True if the line is completely blank or only contains whitespace, false otherwise
+         * @author Wong Qian Xian
+         */
+        bool isBlankLine(string dummy); 
+
+        /**
+         * @brief   Formats an integer into a 4-character string padded with leading zeroes.
+         * @details This helper function ensures that numbers displayed in the CPU state or memory dump are uniformly formatted (eg, converting 5 to "0005")
+         * It utilizes standard C++ string stream manipulators to automatically handle the padding
+         * @param   num The integer value to be formatted
+         * @return  A string representation of the number strictly padded to 4 characters
+         * @author Wong Qian Xian
+         */
+        string format4(int num); 
+        
+        /**
+         * @brief   Strictly checks if a string is a valid number to prevent system crashes
+         * @details Ensures the string contains only digits (allows +/- signs) and 
+         * limits the length to prevent std::out_of_range crashes when converting massive numbers to integers
+         * @param   str The string to evaluate
+         * @return  True if it is a safely convertible number, false otherwise
+         * @author  Wong Qian Xian
+         */
         bool isNumber(const string& str);
-        int numberReg(string dummy); // helper function, extracts the number from a register (eg. R1 becomes 1)
+
+        /**
+         * @brief   Extracts the numeric index from a register string
+         * @details Strips the 'R' or 'r' from strings like "R1" and safely converts the remaining string to an integer
+         * @param   dummy The register string (eg, "R1")
+         * @throws  SyntaxException if the string is not a valid register format or the index is out of bounds
+         * @return  The extracted integer index of the register
+         * @author  Wong Qian Xian
+         */
+        int numberReg(string dummy);
+
+        /**
+         * @brief  Creates the appropriate MoveInstruction based on string syntax
+         * @param  reg The integer index of the destination register (where the data is going)
+         * @param  value The string representing the source (immediate, register, or indirect memory)
+         * @throws SyntaxException if brackets are mismatched, empty, or if an invalid number is provided
+         * @return A pointer to a newly created MoveInstruction object
+         * @author Wong Qian Xian
+         */
         Instruction* handleMove(int reg, string value);
 
-        // acts as translator, the read text from file and figure whih instruction object to create
+
+        /**
+         * @brief  Parses standard mathematical and logical commands
+         * @param  first The command keyword (eg, "ADD", "INC")
+         * @param  rest The remaining stringstream containing the operands (eg, "R1, R2")
+         * @throws SyntaxException if commas are missing, misplaced, or if operands are left blank
+         * @return A pointer to a new ArithmeticInstruction, or nullptr if the command is not handled here
+         * @author Wong Qian Xian
+         */
         Instruction* MathAndLogic(const string& first, stringstream& rest);
+
+        /**
+         * @brief  Parses Input/Output and Stack manipulation commands
+         * @param  first The command keyword (eg, "PUSH", "INPUT")
+         * @param  rest The remaining stringstream containing the register operand
+         * @throws SyntaxException if commas are present or the operand is missing
+         * @return A pointer to a new IOInstruction or StackInstruction, or nullptr if unhandled
+         * @author Wong Qian Xian
+         */
         Instruction* parseIOAndStack(const string& first, stringstream& rest);
+
+        /**
+         * @brief  Parses direct and indirect memory commands
+         * @param  first The command keyword ("LOAD" or "STORE")
+         * @param  rest The remaining stringstream containing the operands
+         * @throws SyntaxException if commas are missing, brackets are malformed, or invalid addresses are given
+         * @return A pointer to a new LoadStoreInstruction, or nullptr if unhandled
+         * @author wWong Qian Xian
+         */
         Instruction* parseLoadStore(const string& first, stringstream& rest);
+
+        /**
+         * @brief  Parses bitwise shift and flag reset commands
+         * @param  first The command keyword (eg, "SHL", "RESET")
+         * @param  rest The remaining stringstream containing the operands
+         * @throws SyntaxException if flag names are invalid, shift counts are not numbers, or commas are malformed
+         * @return A pointer to a new ShiftInstruction or ResetFlagsInstruction, or nullptr if unhandled
+         * @author Wong Qian Xian
+         */
         Instruction* ShiftAndReset(const string& first, stringstream& rest);
-        string buildCpuStateString(); // build the shared cpu state to prevent repetition
+
+        /**
+         * @brief  Constructs a formatted string of the current CPU registers, flags, and PC
+         * @return A formatted string representation of the CPU state
+         * @author Wong Qian Xian
+         */
+        string buildCpuStateString(); 
+
+        /**
+         * @brief   Routes a line of assembly code to the correct parser
+         * @details Translates the text into an Instruction object and pushes it into the program vector
+         * Also enforces strict syntax rules by catching extra trailing garbage text
+         * @param   currentline The full line of assembly text from the file
+         * @throws  SyntaxException if the command keyword is completely unknown or if trailing garbage characters exist
+         * @author  Wong Qian Xian
+         */
         void decodeAndStore(string currentline); 
 
     public:
-        Runner() {}  // default constructor
-        ~Runner(); // destructor to clean up dynamic allocated memory, prevent memory leak
-        void loadProgram(const string& filename, const string& outputFilename); // loads asm file, read it, translate into instructions
-        void executeProgram(const string& outputFilename = "output.txt"); // loops through the saved instructions and tells the CPU to perform them
-        void dumpStateToScreen(); // screen output
-        void dumpStateToFile(ofstream& outFile); // file output
+    
+        /** * @brief Constructs a Runner object with default initialization
+         * @author Wong Qian Xian
+         */
+        Runner() {}
+
+        /**
+         * @brief Destroys the Runner object
+         * @post  Iterates through the program vector and deletes all dynamically allocated Instruction pointers, preventing memory leaks
+         * @author Wong Qian Xian
+         */
+        ~Runner(); 
+
+        /**
+         * @brief   Loads and parses an assembly program from a file
+         * @details Reads the file line by line, converts text to uppercase, ignores blank lines, 
+         * and decodes the text into executable instructions
+         * @param   filename The name of the input .asm file to read
+         * @param   outputFilename The name of the text file where errors or final outputs will be written
+         * @throws  FileException if the input file cannot be found or the output file cannot be created
+         * @throws  RunTimeCrashException if a syntax error is found during decoding
+         * @author  Wong Qian Xian
+         */
+        void loadProgram(const string& filename, const string& outputFilename); 
+
+        /**
+         * @brief   Executes the loaded instruction sequence
+         * @details Loops through the stored Instruction objects and triggers their execute() functions on the virtual machine 
+         * Handles execution halting and logs errors if a hardware limit is breached
+         * @param   outputFilename The file where the crash details or successful final state will be recorded. Defaults to "output.txt"
+         * @throws  RunTimeCrashException if an instruction causes a hardware or logic error (eg, division by zero, stack overflow)
+         * @author  Wong Qian Xian
+         */
+        void executeProgram(const string& outputFilename = "output.txt");
+
+        /**
+         * @brief  Prints the final state of the CPU and memory to the console screen
+         * @post The complete hardware state of the virtual machine is written to the standard output stream
+         * @author Wong Qian Xian
+         */
+        void dumpStateToScreen();
+
+        /**
+         * @brief  Writes the final state of the CPU and memory to the designated output file
+         * @param  outFile A reference to the open output file stream where the state snapshot will be recorded
+         * @post The state of the virtual machine is sequentially appended to the target file
+         * @author Wong Qian Xian
+         */
+        void dumpStateToFile(ofstream& outFile);
 };
 
 // ==========================================
@@ -1429,16 +1660,16 @@ DataRegister *CPU::getRegister(int index)
 void CPU::pushToStack(signed char value)
 {
     systemStack.push(value); // puts the data into the customstack
-    incrementSI(); //updates counter so the cpu knows
+    incrementSI(); // updates counter so the cpu knows
 }
 
 signed char CPU::popFromStack()
 {
     try { ///< @note Added by Mun William: Exception Handling
-        signed char peek = systemStack.peek();
-        systemStack.pop();
-        decrementSI();
-        return peek;
+        signed char peek = systemStack.peek(); // retrieve the value currently at the top of the stack without removing it yet
+        systemStack.pop(); // remove the top item from the stack
+        decrementSI(); // update the CPU's counter to reflect the removed item
+        return peek; // return the saved top value to the instruction that called this function
     } catch (LogicException& e) { ///< @note Added by Mun William: Exception Handling
         throw HardwareException("Stack underflow. Trying to pop empty stack."); ///< @note Added by Mun William: Exception Handling
     }
@@ -1649,392 +1880,288 @@ bool Runner::isBlankLine(string dummy)
     if (dummy.empty()) return true; // if there is zero character, return blank
     for(int i=0; i < dummy.length(); i++) // look at every character in the string
     {
-        if(dummy[i] != ' ' && dummy[i]!= '\t' && dummy[i]!= '\r' && dummy[i]!= '\n') // find anything that is not a space, tab or enter key, then not blank
-            return false;
+        if(dummy[i] != ' ' && dummy[i]!= '\t' && dummy[i]!= '\r' && dummy[i]!= '\n') // find anything that is not a space, tab or enter key, then it is not blank
+            return false; // then the line contains actual text, return false immediately
     }
-    return true; // if only found spaces or tabs, it is blank
+    return true; // // if the loop finishes and only found whitespace characters, it is blank
 }
 
 string Runner::format4(int num)
 {
-    stringstream belt;
-    // setfill('0') tells it to use zeroes.
-    // setw(4) tells it to make sure the string is exactly 4 characters wide.
-    belt << internal << setfill('0') << setw(4) << num;
-    return belt.str(); //  convert the stream back into a normal string
+    stringstream belt; // create a string stream object to construct our formatted output
+    belt << internal << setfill('0') << setw(4) << num; // 'internal' aligns the padding appropriately for numbers, setfill('0') tells it to use zeroes, setw(4) tells it to make sure the string is exactly 4 characters wide
+    return belt.str(); //  convert the stream back into a normal string and return it
 }
 
-bool Runner::isNumber(const string& str) {
-    if (str.empty()) return false;
-    
+bool Runner::isNumber(const string& str) 
+{
+    if (str.empty()) return false; // check 1: if they handed us nothing, reject it immediately
     int start = 0;
-    // Allow negative or positive signs
-    if (str[0] == '-' || str[0] == '+') {
-        if (str.length() == 1) return false; 
+    if (str[0] == '-' || str[0] == '+') { // check 2: allow the very first character to be a negative or positive sign
+        if (str.length() == 1) return false;  // if it is just a sign (like "-") with no actual numbers after it, reject it
         start = 1;
     }
     
-    // Prevent std::out_of_range crashes for massive numbers
-    if (str.length() - start > 9) return false; 
+    if (str.length() - start > 9) return false; // check 3: if the number of digits is more than 9, it is too massive for a standard integer and will crash the system
     
-    // Ensure every character is a digit
-    for (int i = start; i < str.length(); i++) {
-        if (str[i] < '0' || str[i] > '9') return false;
+    for (int i = start; i < str.length(); i++) { // check 4: check every single remaining character one by one
+        if (str[i] < '0' || str[i] > '9') return false; // if we find any character that is not between 0 and 9 (like a letter or decimal) then reject it
     }
-    return true;
+    return true; // if it survived all the security checks, it is a safe number
 }
 
 int Runner::numberReg(string dummy) {
-    if(dummy.empty()) throw SyntaxException("Missing register."); 
+    if(dummy.empty()) throw SyntaxException("Missing register."); // check 1: if they handed us an entirely empty string, reject it
     
-    if(dummy[0] == 'R' || dummy[0] == 'r') {
-        string justNumber = dummy.substr(1); 
+    if(dummy[0] == 'R' || dummy[0] == 'r') { // check 2: does the string start with 'R' or 'r'?
+        string justNumber = dummy.substr(1); // extract everything after the 'R' (eg, grab the "1" from "R1")
         
-        if(justNumber.empty()){
+        if(justNumber.empty()){ // check 3: did they just type "R" and forget the number
             throw SyntaxException("Missing register index in " + dummy);
         } else {
-            for (int i = 0; i < justNumber.length(); i++){
-                if(justNumber[i] < '0' || justNumber[i] > '9'){
+            for (int i = 0; i < justNumber.length(); i++){ // check 4: check every single character of the remaining string
+                if(justNumber[i] < '0' || justNumber[i] > '9'){ // if there are any letters or symbols mixed into the number, reject it
                     throw SyntaxException("Invalid character in register index: " + dummy);
                 }
             }
         }
-        if (justNumber.length() > 9) throw SyntaxException("Register index too large: " + dummy);
-        return stoi(justNumber);
+        if (justNumber.length() > 9) throw SyntaxException("Register index too large: " + dummy); // check 5: if they typed "R9999999999", prevent C++ from crashing
+        return stoi(justNumber); // convert the verified string (like "1") into a real integer (1) and return it
     }
-    // Completely rejects anything that isn't a valid register
-    throw SyntaxException("Expected a register (e.g., R1), but got: " + dummy);
+    throw SyntaxException("Expected a register (e.g., R1), but got: " + dummy); // check 6: if the string didn't even start with an 'R', it's completely invalid
 }
 
 Instruction* Runner::handleMove(int reg, string value) {
-    if (value.front() == '[') {
-        if(value.back() != ']') throw SyntaxException("Missing a ']' at the back of MOV");
+    if (value.front() == '[') { // scene 1: MOV R0, [R1], if the first character is a bracket, it means we are looking at a memory address
+        if(value.back() != ']') throw SyntaxException("Missing a ']' at the back of MOV"); // must have a closing bracket, and can't be empty "[]"
         if(value.length() < 3) throw SyntaxException("Empty memory address bracket at MOV");
         
-        // Register indirect [R1]
-        string inner = value.substr(1, value.length() - 2); 
-        if (inner.empty()) throw SyntaxException("Empty memory address bracket at MOV");
-        if (inner[0] != 'R' && inner[0] != 'r') throw SyntaxException("MOV only allows register indirect form [R?], not [" + inner + "]");
-        return new MoveInstruction(3, reg, numberReg(inner));
+        string inner = value.substr(1, value.length() - 2); // strip off the '[' and ']' to look at the inner text (eg, turn "[R1]" into "R1")
+        if (inner.empty()) throw SyntaxException("Empty memory address bracket at MOV"); // ensure they didn't just type spaces inside the brackets
+        if (inner[0] != 'R' && inner[0] != 'r') throw SyntaxException("MOV only allows register indirect form [R?], not [" + inner + "]"); // For MOV, the inside of the bracket must be a register. Reject [20]
+        return new MoveInstruction(3, reg, numberReg(inner)); // Mode 3: move data from the memory address pointed to by a register
     }
-    else if (value[0] == 'R' || value[0] == 'r'){
-        // Register to register (e.g., MOV R1, R2)
-        return new MoveInstruction(2, reg, numberReg(value));
+    else if (value[0] == 'R' || value[0] == 'r'){ // scene 2: MOV R0, R1, if it starts with 'R' or 'r', they just want to copy data from one register to another
+        return new MoveInstruction(2, reg, numberReg(value)); // Mode 2: move data directly between registers, numberReg  ensure 'value' is a perfect register
     }
     
-    // Guarded Immediate (e.g., MOV R1, 10)
-    if (!isNumber(value)) throw SyntaxException("Expected an immediate number for MOV, but got: " + value);
+    if (!isNumber(value)) throw SyntaxException("Expected an immediate number for MOV, but got: " + value); // scene 3: MOV R0, 10, if it didn't have brackets and didn't start with 'R', it is a raw number
     return new MoveInstruction(1, reg, stoi(value));
 }
 
 Instruction* Runner::MathAndLogic(const string& first, stringstream& rest) {
-    if (first != "INC" && first != "DEC" && first != "ADD" && first != "SUB" && first != "MUL" && first != "DIV" && first != "MOV") return nullptr;
-
+    if (first != "INC" && first != "DEC" && first != "ADD" && first != "SUB" && first != "MUL" && first != "DIV" && first != "MOV") return nullptr; // if this word isn't on our specific list of math/move commands, ignore it and return nullptr so the next parser can try to read it
     string dest, value;
-    
-    if (first == "INC" || first == "DEC") {
-        rest >> dest; 
-        if (dest.empty()) throw SyntaxException("Missing register for: " + first);
-        if (dest.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first);
-        if (dest.back() == ',') throw SyntaxException("Unexpected comma in: " + dest);
-        return new ArithmeticInstruction(first, numberReg(dest));
-    }
-
-    rest >> dest >> value;
-
-    if (dest.empty()) throw SyntaxException("Missing operands for command: " + first);
-    
-    // Ultimate Comma Guard (Catches: ADD ,5)
-    if (dest.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first);
-    
-    if (value.empty()) {
-        if (dest.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + dest);
-        if (dest.back() == ',') throw SyntaxException("Missing value: " + dest);
-        throw SyntaxException("Missing space after comma in: " + rest.str());
-    }
-    if (dest.back() != ',') throw SyntaxException("Missing comma: " + dest + " " + value);
-
-    dest.pop_back(); // Clean trailing comma
-
-    int reg = numberReg(dest); 
-
-    if (first == "MOV") {
-        return handleMove(reg, value); 
-    }
-        
-    if (value[0] == 'R' || value[0] == 'r'){
-        return new ArithmeticInstruction(first, reg, numberReg(value), false); 
-    } 
+    if (first == "INC" || first == "DEC") { // scene 1: INC DEC
+        rest >> dest; // read the single target register
+        if (dest.empty()) throw SyntaxException("Missing register for: " + first); // check 1: check if no register is stated
+        if (dest.front() == ',') throw SyntaxException("Unexpected comma before: " + dest); // check 2: catches if INC ",R0"
+        if (dest.back() == ',') throw SyntaxException("Unexpected comma in: " + dest); // check 3: catches if "R0,"
+        return new ArithmeticInstruction(first, numberReg(dest)); } // build the instruction, numberReg checks
+    rest >> dest >> value; // scene 2: ADD SUB MUL DIV MOV, try to read both parts
+    if (dest.empty()) throw SyntaxException("Missing operands for command: " + first); // check 1: check missing first piece
+    if (dest.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first); // check 2: catches if they typed "ADD ,5"
+    if (value.empty()) { // check 3: if the second piece is missing
+        if (dest.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + dest); // if there isn't a comma anywhere in the first word, (eg, "ADD R1 R2")
+        if (dest.back() == ',') throw SyntaxException("Missing value: " + dest); // if the first word have a comma at the end, they just forgot the value (eg, "ADD R1,")
+        throw SyntaxException("Missing space after comma in: " + rest.str()); } // if they glued it all together without a space (eg, "ADD R1,R2"), it gets stuck in dest
+    if (dest.back() != ',') throw SyntaxException("Missing comma: " + dest + " " + value); // check 4: ensure the comma is exactly at the end of the first word (eg, "R1,")
+    dest.pop_back(); // clean ending comma
+    int reg = numberReg(dest); // convert the string into a real integer index 
+    if (first == "MOV") return handleMove(reg, value); // if it's a MOV command, send it to MOV sorting function
+    if (value[0] == 'R' || value[0] == 'r') return new ArithmeticInstruction(first, reg, numberReg(value), false); // if the second value starts with 'R' or 'r', they want to do math with another register
     else {
-        // Guarded Immediate
-        if (!isNumber(value)) throw SyntaxException("Expected a number for " + first + ", but got: " + value);
+        if (!isNumber(value)) throw SyntaxException("Expected a number for " + first + ", but got: " + value); // if not, they want to do math with a raw number
         return new ArithmeticInstruction(first, reg, stoi(value), true); 
     }
 }
 
 Instruction* Runner::parseIOAndStack(const string& first, stringstream& rest) {
-    if (first != "INPUT" && first != "DISPLAY" && first != "PUSH" && first != "POP") return nullptr; 
-
+    if (first != "INPUT" && first != "DISPLAY" && first != "PUSH" && first != "POP") return nullptr; // if the word isn't an IO or Stack command, ignore it and return nullptr so the next parser in line can try to read it
     string a;
-    rest >> a;
-
-    if (a.empty()) throw SyntaxException("Missing register operand for command: " + first);
-    if (a.back() == ',') throw SyntaxException("Unexpected comma after register in: " + a);
-
-    if (first == "INPUT" || first == "DISPLAY"){
-        return new IOInstruction(first, numberReg(a));
-    }
-    else {
-        return new StackInstruction(first, numberReg(a), virtualMachine.getSystemStack());
-    }
+    rest >> a; // read the target register
+    if (a.empty()) throw SyntaxException("Missing register operand for command: " + first); // check 1: did they just type the command and forget the register
+    if (a.back() == ',') throw SyntaxException("Unexpected comma after register in: " + a); // check 2: since these are strict 1 operand commands, a comma should never exist here
+    if (first == "INPUT" || first == "DISPLAY") return new IOInstruction(first, numberReg(a)); // scene 1: Input/Output , create an IO Instruction
+    else return new StackInstruction(first, numberReg(a), virtualMachine.getSystemStack()); // scene 2: Stack, create a Stack Instruction
 }
 
 Instruction* Runner::parseLoadStore(const string& first, stringstream& rest){
-    if (first != "LOAD" && first != "STORE") return nullptr; 
-
+    if (first != "LOAD" && first != "STORE") return nullptr; // if this isn't a memory command, ignore it and return nullptr
     string a, b;
-    rest >> a >> b;
-
-    if (a.empty()) throw SyntaxException("Missing operands for command: " + first);
-    
-    // Ultimate Comma Guard
-    if (a.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first);
-    
+    rest >> a >> b; // try to read both parts
+    if (a.empty()) throw SyntaxException("Missing operands for command: " + first); // catches empty operands
+    if (a.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first); // catches: LOAD ,[20]
     if (b.empty()) {
         if (a.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + a);
         if (a.back() == ',') throw SyntaxException("Missing value operand for command: " + first);
-        else throw SyntaxException("Missing space after comma in: " + rest.str()); 
-    }
+        else throw SyntaxException("Missing space after comma in: " + rest.str()); }
     if (a.back() != ',') throw SyntaxException("Missing comma after first operand in: " + a + " " + b); 
-     
-    a.pop_back();
-
-    if (first == "LOAD"){
-        if (b.front() == '[') {
+    a.pop_back(); // clean the ending comma off the first operand
+    if (first == "LOAD"){ // scene 1: LOAD command
+        if (b.front() == '[') { // LOAD absolutely requires brackets on the second piece of data
             if(b.back() != ']') throw SyntaxException("Missing a ']' at the back of LOAD");
             if(b.length() < 3) throw SyntaxException("Empty memory address bracket at LOAD");
-            b = b.substr(1, b.length() -2); 
-            
-            if (b[0] == 'R' || b[0] == 'r') return new MoveInstruction(4, numberReg(a), numberReg(b));
-
-            // Guarded Address
-            if (!isNumber(b)) throw SyntaxException("Expected a memory address number, but got: " + b);
-            return new LoadStoreInstruction(1, numberReg(a), static_cast<signed char>(stoi(b)));
-        } else {
-            throw SyntaxException("LOAD memory address must be in brackets near: " + a + ", " + b);
-        }
-    }
-
-    if (first == "STORE"){
-        if (b.front() == '['){
+            b = b.substr(1, b.length() -2);  // strip the brackets off (eg, turn "[20]" into "20")
+            if (b[0] == 'R' || b[0] == 'r') return new MoveInstruction(4, numberReg(a), numberReg(b)); // LOAD R1, [R2], if the inside of the bracket is a register, treat it as a Move Instruction
+            if (!isNumber(b)) throw SyntaxException("Expected a memory address number, but got: " + b); // pass it through the security checkpoint to ensure it's a valid number
+            return new LoadStoreInstruction(1, numberReg(a), static_cast<signed char>(stoi(b))); } // LOAD R1, [20], 
+            else throw SyntaxException("LOAD memory address must be in brackets near: " + a + ", " + b); }
+    if (first == "STORE"){ // scene 2: STORE command
+        if (b.front() == '['){ // STORE R1, [R2]
             if(b.back() != ']') throw SyntaxException("Missing a ']' at the back of STORE");
             if(b.length() < 3) throw SyntaxException("Empty memory address bracket at STORE");
-            b = b.substr(1, b.length() - 2); 
-
-            if (b[0] != 'R' && b[0] != 'r') throw SyntaxException("Unexpected bracketed number/address in STORE: [" + b + "]");
-            return new LoadStoreInstruction(3, numberReg(a), numberReg(b)); 
-        }
-        else if (a[0] == 'R' || a[0]== 'r') {
-            // Guarded Address (STORE R1, 43)
+            b = b.substr(1, b.length() - 2); // strip the brackets off
+            if (b[0] != 'R' && b[0] != 'r') throw SyntaxException("Unexpected bracketed number/address in STORE: [" + b + "]"); // For STORE with brackets, the inside must be a register
+            return new LoadStoreInstruction(3, numberReg(a), numberReg(b)); }
+        else if (a[0] == 'R' || a[0]== 'r') { // STORE R1, 43, register first
             if (!isNumber(b)) throw SyntaxException("Invalid STORE syntax. Expected STORE Rn, number or STORE Rn, [Rm], but got: STORE " + a + ", " + b);
-            return new LoadStoreInstruction(2, numberReg(a), static_cast<signed char>(stoi(b))); 
-        }
-        else  {
-            // Guarded Address (STORE 43, R1)
-            if (!isNumber(a)) throw SyntaxException("Expected a memory address number, but got: " + a);
-            return new LoadStoreInstruction(2, numberReg(b), static_cast<signed char>(stoi(a))); 
-        }
-    }
+            return new LoadStoreInstruction(2, numberReg(a), static_cast<signed char>(stoi(b))); }
+        else  {if (!isNumber(a)) throw SyntaxException("Expected a memory address number, but got: " + a); //STORE 43, R1. address first
+            return new LoadStoreInstruction(2, numberReg(b), static_cast<signed char>(stoi(a))); } }
     return nullptr;
 }
 
 Instruction* Runner::ShiftAndReset(const string& first, stringstream& rest) {
-    if (first != "RESET" && first != "SHL" && first != "SHR" && first != "ROL" && first != "ROR") return nullptr;
-
+    if (first != "RESET" && first != "SHL" && first != "SHR" && first != "ROL" && first != "ROR") return nullptr; // if this isn't a reset or shift command, ignore it and return nullptr
     string a, b;
-    rest >> a;
-    if (a.empty()) throw SyntaxException("Missing operands for command: " + first);
-    
-    // Ultimate Comma Guard
-    if (a.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first);
-
-    if (first == "RESET"){
-        if (a.back() == ',') throw SyntaxException("Unexpected comma in RESET: " + a);
-        
-        // Strict Flag Verification
-        if (a != "CF" && a != "OF" && a != "ZF" && a != "UF") {
-            throw SyntaxException("Invalid flag name for RESET: " + a);
-        }
+    rest >> a; // read the first operand
+    if (a.empty()) throw SyntaxException("Missing operands for command: " + first); // check 1: did they type the command but forget to give any operands
+    if (a.front() == ',') throw SyntaxException("Missing first operand before comma in: " + first); // check 2: catch accidental leading commas (eg, "RESET ,CF")
+    if (first == "RESET"){ // scene 1: reset command
+        if (a.back() == ',') throw SyntaxException("Unexpected comma in RESET: " + a); // since reset only takes one flag name, there should never be a comma
+        if (a != "CF" && a != "OF" && a != "ZF" && a != "UF") throw SyntaxException("Invalid flag name for RESET: " + a); // ensure the target is one of the 4 valid flags
         return new ResetFlagsInstruction(a);
     }
-
     rest >> b;
-
-    if (b.empty()) {
+    if (b.empty()) { // scene 2: bitwise shift command
         if (a.find(',') == string::npos) throw SyntaxException("Missing comma and value operand in: " + a);
         if (a.back() == ',') throw SyntaxException("Missing value: " + a);
-        throw SyntaxException("Missing space after comma in: " + rest.str());
-    }
-    if (a.back() != ',') throw SyntaxException("Missing comma: " + a + " " + b);
-
-    a.pop_back();
-
-    // Guarded Immediate
-    if (!isNumber(b)) throw SyntaxException("Expected a shift count number, but got: " + b);
-    return new ShiftInstruction(first, numberReg(a), stoi(b));
+        throw SyntaxException("Missing space after comma in: " + rest.str()); }
+    if (a.back() != ',') throw SyntaxException("Missing comma: " + a + " " + b); // ensure the first operand ends with a comma (eg, "R1,")
+    a.pop_back(); // remove the trailing comma so we are left with a clean register string (like "R1")
+    if (!isNumber(b)) throw SyntaxException("Expected a shift count number, but got: " + b); // pass the shift count to make sure it's a valid number
+    return new ShiftInstruction(first, numberReg(a), stoi(b)); // build the shift instruction
 }
 
 string Runner::buildCpuStateString()
 {
-    stringstream out;
-    out << "#Begin#\n";
-        
-    out << "#Registers#";
-    for (int i = 0; i < 8; i++) {
+    stringstream out; // create a stringstream workspace (our blank receipt paper) to assemble the report
+    out << "#Begin#\n";  // beginning of the CPU report
+    out << "#Registers#"; // step 1: record the registers (R0 to R7)
+    for (int i = 0; i < 8; i++) { // grab each register's value, format it to 4 digits (e.g., "0005"), and separate with '#'
         out << format4((int)virtualMachine.getRegister(i)->getValue()) << "#";
     }
     out << "\n";
-
-    FlagRegister* f = virtualMachine.getFlags();
-    out << "#Flags#OF#" << f->getOF() << "#UF#" << f->getUF() << "#CF#" << f->getCF() << "#ZF#" << f->getZF() << "#\n";
-
-    out << "#PC#" << format4((int)virtualMachine.getPC()) << "#\n";
-        
-    return out.str();
+    FlagRegister* f = virtualMachine.getFlags(); // step 2: record the flags
+    out << "#Flags#OF#" << f->getOF() << "#UF#" << f->getUF() << "#CF#" << f->getCF() << "#ZF#" << f->getZF() << "#\n"; // print the 0 or 1 status for Overflow (OF), Underflow (UF), Carry (CF), and Zero (ZF)
+    out << "#PC#" << format4((int)virtualMachine.getPC()) << "#\n"; // step 3: record the program counter, format the current line number to 4 digits so we know exactly where the program stopped
+    return out.str(); // convert our completed workspace into a standard string and return it
 }
 
 Runner::~Runner()
-{
+{ // loop through every single instructions stored in our program
     for (int i = 0; i < program.size(); i++)
-        {delete program.at(i);}
+        {delete program.at(i);} // delete the dynamically allocated Instruction object from the memory
 }
 
 void Runner::decodeAndStore(string currentLine){
-    stringstream lineStream(currentLine); // turn the string into a stream to read word by word
+    stringstream lineStream(currentLine); // create a string stream workspace to read the incoming line word by word
         string first;
-        lineStream >> first; // read the first word (eg. ADD)
-
-        // try to translate the instruction by passing it into our 3 parser functions, if the first cant handle it, then returns nullptr, so we try MemAndIO
-        Instruction* inst = MathAndLogic(first, lineStream);
-        if (!inst) inst = parseIOAndStack(first, lineStream);
-        if (!inst) inst = parseLoadStore(first, lineStream);
-        if (!inst) inst = ShiftAndReset(first, lineStream);
-        
-        // if one of the parsers successfully created an instruction, save it
+        lineStream >> first; // read the first wor of the line (eg. ADD)
+        // step 1: the routing chain
+        Instruction* inst = MathAndLogic(first, lineStream); // try to pass the command to the math & logic station first
+        if (!inst) inst = parseIOAndStack(first, lineStream); // if math didn't recognize it (returned nullptr), try the input/output & stack station
+        if (!inst) inst = parseLoadStore(first, lineStream); // if still not recognized, try the memory station (load/store)
+        if (!inst) inst = ShiftAndReset(first, lineStream); // finally, if none of the above worked, try the shift/reset station
+        // step 2: verification and storage, if one of the parsers successfully created an instruction
         if (inst) {
-            // --- NEW STRICT CHECK: Prevent multiple commands on one line ---
+            // try to read one more word from the stream, if anything is left over (like "ADD R1, 10 EXTRA_JUNK"), reject the entire line
             string extraGarbage;
             if (lineStream >> extraGarbage) {
             throw SyntaxException("Trailing characters or multiple instructions on one line: " + extraGarbage); }
-            program.push_back(inst); }
-        else throw SyntaxException("Invalid syntax found: " + first);
+            program.push_back(inst); } // the command is verified, push the instruction pointer into our program 
+        else throw SyntaxException("Invalid syntax found: " + first); // if none of the four stations recognized the first word, throw a syntax error
 }
 
-void Runner::loadProgram(const string& filename, const string& outputFilename)
-{
-    ifstream file(filename);
+void Runner::loadProgram(const string& filename, const string& outputFilename) {
+    ifstream file(filename); // step 1: open the input and output files
     if(!file.is_open()) throw FileException(filename, "File is not found or cannot be opened."); 
-    
     ofstream outFile(outputFilename);
     if (!outFile.is_open()) {
-        file.close();
-        throw FileException(outputFilename, "Output file cannot be created.");
-    }
-
-    //store into queue
-    CustomQueue<string> lineQueue;
+        file.close(); // prevent resource leaks by closing the input file before throwing
+        throw FileException(outputFilename, "Output file cannot be created."); }
+    CustomQueue<string> lineQueue; // create our conveyor belts (queues) to hold the text lines and their line numbers
     CustomQueue<int> lineNumberQueue;
     string line;
     int fileLineNumber = 0;
-
-    // read every line from the file, and put it in a queue
-    while(getline(file,line))
-    {
+    while(getline(file,line)) { // step 2: read the file line by line into the Queue
         fileLineNumber++;
-        if(isBlankLine(line)) continue; // skip empty lines
-        lineQueue.enqueue(line); // put the line back at the queue
-        lineNumberQueue.enqueue(fileLineNumber);
-    }
-    file.close(); // close the file when done
-
-    // take lines out the queue one by one, translate them and put them into a vector
-    while (!lineQueue.isEmpty())
-    {
+        if(isBlankLine(line)) continue; // if its a blank line, skip it and move to the next line
+        lineQueue.enqueue(line); // place the clean text and its corresponding line number onto our conveyor belts
+        lineNumberQueue.enqueue(fileLineNumber); }
+    file.close(); // close the input file after all data  stored in our queues
+    while (!lineQueue.isEmpty()) { // step 3: process and decode the queued lines  
         string currentLine = lineQueue.front();
         int currentLineNumber = lineNumberQueue.front();
-
-        // convert to uppercase
-        for (char &c : currentLine) c = toupper(c);
-
-        try {
-            decodeAndStore(currentLine);
-        }
+        for (char &c : currentLine) c = toupper(c); // convert every character in the line to uppercase (eg, "add r1, r2" -> "ADD R1, R2")
+        try { decodeAndStore(currentLine); } // attempt to decode the line and store the resulting Instruction object
         catch (VMException& e) {
+            // if found a syntax error, write to output file
             outFile << "Error at line " << currentLineNumber << ": " << e.getErrorMessage() << "\n";
             outFile << "Instruction: " << lineQueue.front() << "\n";
             outFile.close();
-
-            throw RunTimeCrashException("AT LINE " + to_string(currentLineNumber) + " >> " + e.getErrorMessage());
+            throw RunTimeCrashException("AT LINE " + to_string(currentLineNumber) + " >> " + e.getErrorMessage()); // stopp the virtual machine immediately with the exact line number that caused the crash
         }
-
-        lineQueue.dequeue();
-        lineNumberQueue.dequeue();
-    }
-    outFile.close();
+        lineQueue.dequeue(); // remove the processed line from the front of the conveyor belts
+        lineNumberQueue.dequeue(); }
+    outFile.close(); // close the output file after successfully processing the entire program
 }
 
 void Runner::executeProgram(const string& outputFilename)
 {
-    ofstream outFile;
+    ofstream outFile; // step 1: open the output logbook
     outFile.open(outputFilename);
-
-    // try-catch blocks protect the program from crashing
-    // try {
-    // loop through our vector of instructions from top to bottom
-    for (int i = 0; i < program.size(); i++)
-    {
+    for (int i = 0; i < program.size(); i++) { // step 2: the main execution loop, loop through every single instruction object in our program
         try{
             // tell the specific instruction to execute itself on our virtual machine
-            program.at(i) ->execute(virtualMachine); // move the program counter forward by 1
-            // dumpStateToScreen(); // @debug
+            program.at(i) ->execute(virtualMachine);
             virtualMachine.incrementPC(); // move the program counter forward by 1
-        } catch (VMException& e){
+        } catch (VMException& e){ // step 3: error handling & logging
             if(outFile.is_open()) {
                 outFile << "\n Stopping...";
                 outFile << "\n Command Caused Error: " << program.at(i)->getCommand();
                 outFile << "\n Reason: " << e.getErrorMessage() << endl;
             }
-            throw RunTimeCrashException(e.getErrorMessage(), virtualMachine.getPC()+1, program.at(i)->getCommand());
+            throw RunTimeCrashException(e.getErrorMessage(), virtualMachine.getPC()+1, program.at(i)->getCommand()); // if fatal system crash, passing along the exact PC line and failed command
         }
     }
-    dumpStateToScreen();
+    dumpStateToScreen(); // step 4: end output, if we survived the entire loop without throwing any errors, print the final output
     dumpStateToFile(outFile);
-    outFile.close();
+    outFile.close(); // close the output file before ending
 }
 
 void Runner::dumpStateToScreen()
 {
-    cout << buildCpuStateString();
-    virtualMachine.getMemory()-> displayMemory();
-    cout << "#End#\n";
+    cout << buildCpuStateString(); // retrieve and output the formatted diagnostic string containing registers, flags, and the Program Counter
+    virtualMachine.getMemory()-> displayMemory(); // access the memory via pointer and takes its data to display all memory addresses
+    cout << "#End#\n"; // output to signify the end of the state dump
 }
 
 void Runner::dumpStateToFile(ofstream& outFile)
 {
-    outFile << buildCpuStateString();
-
-    outFile << "#Memory#\n";
-    Memory* mem = virtualMachine.getMemory();
-    for (int row = 0; row < 8; row++) {
+    outFile << buildCpuStateString(); // append the formatted diagnostic string containing registers, flags, and the Program Counter to the file
+    outFile << "#Memory#\n"; // write the header for the memory data dump
+    Memory* mem = virtualMachine.getMemory(); // retrieve a pointer to the memory to access internal storage addresses
+    for (int row = 0; row < 8; row++) { // interate through the 64-byte memory space structured as an 8x8 matrix
         outFile << "#";
         for (int col = 0; col < 8; col++) {
             // Integer cast prevents ASCII symbols from ruining the file
-            outFile << format4((int)mem->read((row * 8) + col)) << "#";
+            outFile << format4((int)mem->read((row * 8) + col)) << "#"; // explicit integer casting ensures numerical data logging rather than raw ascii character rendering
         }
         outFile << "\n"; 
     }
-
-    outFile << "#End#\n";
+    outFile << "#End#\n";  // to signify the end of the file transmission
 }
 
 /**
@@ -2042,33 +2169,31 @@ void Runner::dumpStateToFile(ofstream& outFile)
  * @author Wong Qian Xian
  */
 int main() {
-    Runner interpreter;
+    Runner interpreter; // Instantiate the primary execution controller responsible for the CPU and memory subsystems
     string filename;
-
-    try{
+    try{ // phase 1: user input validation
         cout << "Enter the name of the assembly file you want to run (eg., test.asm): ";
         cin >> filename;
         
-        if(filename.length() < 4 || filename.substr(filename.length() - 4) != ".asm")
+        if(filename.length() < 4 || filename.substr(filename.length() - 4) != ".asm") // verify that the filename string is long enough to contain an extension and terminates in ".asm"
             throw FileException(filename, "Invalid input file type- " + filename + ".\nMust be a .asm file.");
     } catch (VMException& e){ ///< @note Added by Mun William: Added try-catch block for detecting FileException
         cerr << e.getErrorMessage() << endl;
         return 1;
     } 
+    // phase 2: output file construction
+    string baseName = filename.substr(0, filename.length() - 4); // extract the base filename by stripping the 4-character ".asm" extension
     
-    string baseName = filename.substr(0, filename.length() - 4); 
-    
-    // build the new string
-    string outName = "output - " + baseName + ".txt";
+    string outName = "output - " + baseName + ".txt"; // construct the corresponding log filename (eg, "test.asm" -> "output - test.txt")
 
-    try{
-        interpreter.loadProgram(filename, outName);
-        interpreter.executeProgram(outName);
-    } catch (VMException& e){ ///< @note Added by Mun William: Added try-catch block for detecting VMException
-        cerr << e.getErrorMessage() << endl;
+    try{ // phase 3: program loading & execution
+        interpreter.loadProgram(filename, outName); // pass the input file for syntax decoding and pass the output filename for diagnostic logging
+        interpreter.executeProgram(outName); // initiate the CPU execution cycle, directing runtime logs to the constructed output file
+    } catch (VMException& e){ // catch syntax exceptions from loadProgram() or hardware exceptions from executeProgram() 
+        cerr << e.getErrorMessage() << endl; ///< @note Added by Mun William: Added try-catch block for detecting VMException
         return 1;
     }
 
-    cout << "\n Program finished! Check output.txt for the full record \n";
+    cout << "\n Program finished! Check output.txt for the full record \n"; // notify the user of successful execution completion and reference the generated log file
     return 0;
 }
