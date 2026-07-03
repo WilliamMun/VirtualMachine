@@ -1248,6 +1248,7 @@ class Runner {
 
         /**
          * @brief  Creates the appropriate MoveInstruction based on string syntax
+         * @details Inspects prefix and suffix delimiters ('[' and ']') to differentiate between Immediate (Mode 1), Register-to-Register (Mode 2), and Register-Indirect (Mode 3) addressing modes
          * @param  reg The integer index of the destination register (where the data is going)
          * @param  value The string representing the source (immediate, register, or indirect memory)
          * @throws SyntaxException if brackets are mismatched, empty, or if an invalid number is provided
@@ -1283,7 +1284,7 @@ class Runner {
          * @param  rest The remaining stringstream containing the operands
          * @throws SyntaxException if commas are missing, brackets are malformed, or invalid addresses are given
          * @return A pointer to a new LoadStoreInstruction, or nullptr if unhandled
-         * @author wWong Qian Xian
+         * @author Wong Qian Xian
          */
         Instruction* parseLoadStore(const string& first, stringstream& rest);
 
@@ -1308,7 +1309,7 @@ class Runner {
          * @brief   Routes a line of assembly code to the correct parser
          * @details Translates the text into an Instruction object and pushes it into the program vector
          * Also enforces strict syntax rules by catching extra trailing garbage text
-         * @param   currentline The full line of assembly text from the file
+         * @param   currentLine The full line of assembly text from the file
          * @throws  SyntaxException if the command keyword is completely unknown or if trailing garbage characters exist
          * @author  Wong Qian Xian
          */
