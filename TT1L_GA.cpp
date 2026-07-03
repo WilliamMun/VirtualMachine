@@ -2037,6 +2037,10 @@ void Runner::dumpStateToFile(ofstream& outFile)
     outFile << "#End#\n";
 }
 
+/**
+ * @brief  Main program that implement the interpreter.
+ * @author Wong Qian Xian
+ */
 int main() {
     Runner interpreter;
     string filename;
@@ -2047,7 +2051,7 @@ int main() {
         
         if(filename.length() < 4 || filename.substr(filename.length() - 4) != ".asm")
             throw FileException(filename, "Invalid input file type- " + filename + ".\nMust be a .asm file.");
-    } catch (VMException& e){
+    } catch (VMException& e){ ///< @note Added by Mun William: Added try-catch block for detecting FileException
         cerr << e.getErrorMessage() << endl;
         return 1;
     } 
@@ -2060,7 +2064,7 @@ int main() {
     try{
         interpreter.loadProgram(filename, outName);
         interpreter.executeProgram(outName);
-    } catch (VMException& e){
+    } catch (VMException& e){ ///< @note Added by Mun William: Added try-catch block for detecting VMException
         cerr << e.getErrorMessage() << endl;
         return 1;
     }
