@@ -1498,17 +1498,21 @@ void MoveInstruction::execute(CPU& cpu)
 {
     Memory* memory = cpu.getMemory(); // fetch the pointer to memory
     FlagRegister* flags = cpu.getFlags();
+    int flagCheckValue;
     if (mode == 1){ //MOV register, intermediate
         cpu.getRegister(destI)->setValue(static_cast<signed char>(sourceI));
+        flagCheckValue = sourceI;
     } else if (mode == 2){ // MOV register, register
         cpu.getRegister(destI)->setValue(cpu.getRegister(sourceI)->getValue());
+        flagCheckValue = cpu.getRegister(destI)->getValue();
     } else if (mode == 3 || mode == 4){ // MOV register, [register] or LOAD register, [register] 
         int address = cpu.getRegister(sourceI)->getValue(); //get address stored inside the register
         int dataFromMemory = memory->read(address); //fetch data from that memory address
         cpu.getRegister(destI)->setValue(dataFromMemory); // store it in destination register
+        flagCheckValue = cpu.getRegister(destI)->getValue();
     }
 
-    flags->flagIOSetter(cpu.getRegister(destI)->getValue());
+    flags->flagIOSetter(flagCheckValue);
 }
 
 void IOInstruction::execute(CPU& cpu)
