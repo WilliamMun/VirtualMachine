@@ -830,8 +830,13 @@ class CPU {
 
         /**
          * @brief  Removes the top value from the stack and returns it
-         * @post   The top item is removed and the SI is effectively decreased
-         * @return The removed signed character value that was sitting at the top of the stack
+         * @details Safely attempts to read and remove the top item from the virtual machine's stack
+         * If the stack is already empty, it catches the internal logic error and translates 
+         * it into a fatal hardware exception to halt the virtual machine
+         * @pre The system stack should contain at least one item
+         * @post The top item is removed from the data structure, and the Stack Index (SI) is decreased by 1
+         * @throws HardwareException if the stack is empty, indicating a stack underflow
+         * @return The signed character value that was retrieved from the top of the stack
          * @author wong qian xian
          */
         signed char popFromStack();
@@ -1197,17 +1202,22 @@ class Runner {
         CustomVector<Instruction*> program; 
 
         /**
-         * @brief  Checks if a line from the text file is entirely empty or only contains whitespace
-         * @param  dummy The string line to check.
-         * @return True if the line is blank or whitespace, false otherwise
+         * @brief   Checks if a line of text is entirely empty or consists only of whitespace
+         * @details Iterates through every character in the provided string to verify if it contains
+         * It specifically checks for standard whitespace characters including spaces, tabs, carriage returns, and newlines
+         * This is primarily used to safely skip empty lines while parsing the assembly file
+         * @param   dummy The string representing a single line of text from the input file
+         * @return  True if the line is completely blank or only contains whitespace, false otherwise
          * @author Wong Qian Xian
          */
         bool isBlankLine(string dummy); 
 
         /**
-         * @brief  Pads an integer with leading zeroes
-         * @param  num The integer to format
-         * @return A string representation of the number padded to exactly 4 characters (eg, 5 to "0005")
+         * @brief   Formats an integer into a 4-character string padded with leading zeroes.
+         * @details This helper function ensures that numbers displayed in the CPU state or memory dump are uniformly formatted (eg, converting 5 to "0005")
+         * It utilizes standard C++ string stream manipulators to automatically handle the padding
+         * @param   num The integer value to be formatted
+         * @return  A string representation of the number strictly padded to 4 characters
          * @author Wong Qian Xian
          */
         string format4(int num); 
@@ -1216,7 +1226,7 @@ class Runner {
          * @brief   Strictly checks if a string is a valid number to prevent system crashes
          * @details Ensures the string contains only digits (allows +/- signs) and 
          * limits the length to prevent std::out_of_range crashes when converting massive numbers to integers
-         * @param   str The string to evaluate.
+         * @param   str The string to evaluate
          * @return  True if it is a safely convertible number, false otherwise
          * @author  Wong Qian Xian
          */
@@ -1227,17 +1237,17 @@ class Runner {
          * @details Strips the 'R' or 'r' from strings like "R1" and safely converts the remaining string to an integer
          * @param   dummy The register string (eg, "R1")
          * @throws  SyntaxException if the string is not a valid register format or the index is out of bounds
-         * @return  The integer index of the register
+         * @return  The extracted integer index of the register
          * @author  Wong Qian Xian
          */
         int numberReg(string dummy);
 
         /**
          * @brief  Creates the appropriate MoveInstruction based on string syntax
-         * @param  reg The destination register index
+         * @param  reg The integer index of the destination register (where the data is going)
          * @param  value The string representing the source (immediate, register, or indirect memory)
-         * @throws SyntaxException if the source value has invalid brackets or formatting
-         * @return A pointer to a newly allocated MoveInstruction
+         * @throws SyntaxException if brackets are mismatched, empty, or if an invalid number is provided
+         * @return A pointer to a newly created MoveInstruction object
          * @author Wong Qian Xian
          */
         Instruction* handleMove(int reg, string value);
@@ -1246,9 +1256,9 @@ class Runner {
         /**
          * @brief  Parses standard mathematical and logical commands
          * @param  first The command keyword (eg, "ADD", "INC")
-         * @param  rest The remaining stringstream containing the operands
-         * @throws SyntaxException if commas or operands are missing or malformed
-         * @return A pointer to a parsed ArithmeticInstruction, or nullptr if the command is not handled here
+         * @param  rest The remaining stringstream containing the operands (eg, "R1, R2")
+         * @throws SyntaxException if commas are missing, misplaced, or if operands are left blank
+         * @return A pointer to a new ArithmeticInstruction, or nullptr if the command is not handled here
          * @author Wong Qian Xian
          */
         Instruction* MathAndLogic(const string& first, stringstream& rest);
@@ -1258,7 +1268,7 @@ class Runner {
          * @param  first The command keyword (eg, "PUSH", "INPUT")
          * @param  rest The remaining stringstream containing the register operand
          * @throws SyntaxException if commas are present or the operand is missing
-         * @return A pointer to a parsed IOInstruction or StackInstruction, or nullptr if unhandled
+         * @return A pointer to a new IOInstruction or StackInstruction, or nullptr if unhandled
          * @author Wong Qian Xian
          */
         Instruction* parseIOAndStack(const string& first, stringstream& rest);
@@ -1267,8 +1277,8 @@ class Runner {
          * @brief  Parses direct and indirect memory commands
          * @param  first The command keyword ("LOAD" or "STORE")
          * @param  rest The remaining stringstream containing the operands
-         * @throws SyntaxException if bracket formatting, commas, or data types are invalid
-         * @return A pointer to a parsed LoadStoreInstruction, or nullptr if unhandled
+         * @throws SyntaxException if commas are missing, brackets are malformed, or invalid addresses are given
+         * @return A pointer to a new LoadStoreInstruction, or nullptr if unhandled
          * @author wWong Qian Xian
          */
         Instruction* parseLoadStore(const string& first, stringstream& rest);
@@ -1277,8 +1287,8 @@ class Runner {
          * @brief  Parses bitwise shift and flag reset commands
          * @param  first The command keyword (eg, "SHL", "RESET")
          * @param  rest The remaining stringstream containing the operands
-         * @throws SyntaxException if the flag name is invalid or the shift count is malformed
-         * @return A pointer to a parsed ShiftInstruction or ResetFlagsInstruction, or nullptr if unhandled
+         * @throws SyntaxException if flag names are invalid, shift counts are not numbers, or commas are malformed
+         * @return A pointer to a new ShiftInstruction or ResetFlagsInstruction, or nullptr if unhandled
          * @author Wong Qian Xian
          */
         Instruction* ShiftAndReset(const string& first, stringstream& rest);
@@ -1295,7 +1305,7 @@ class Runner {
          * @details Translates the text into an Instruction object and pushes it into the program vector
          * Also enforces strict syntax rules by catching extra trailing garbage text
          * @param   currentline The full line of assembly text from the file
-         * @throws  SyntaxException if the command keyword is unknown or trailing characters exist
+         * @throws  SyntaxException if the command keyword is completely unknown or if trailing garbage characters exist
          * @author  Wong Qian Xian
          */
         void decodeAndStore(string currentline); 
@@ -1331,20 +1341,22 @@ class Runner {
          * @details Loops through the stored Instruction objects and triggers their execute() functions on the virtual machine 
          * Handles execution halting and logs errors if a hardware limit is breached
          * @param   outputFilename The file where the crash details or successful final state will be recorded. Defaults to "output.txt"
-         * @throws  RunTimeCrashException if an instruction causes a CPU-level crash (eg, division by zero, stack overflow)
+         * @throws  RunTimeCrashException if an instruction causes a hardware or logic error (eg, division by zero, stack overflow)
          * @author  Wong Qian Xian
          */
         void executeProgram(const string& outputFilename = "output.txt");
 
         /**
          * @brief  Prints the final state of the CPU and memory to the console screen
+         * @post The complete hardware state of the virtual machine is written to the standard output stream
          * @author Wong Qian Xian
          */
         void dumpStateToScreen();
 
         /**
          * @brief  Writes the final state of the CPU and memory to the designated output file
-         * @param  outFile A reference to the open output file stream
+         * @param  outFile A reference to the open output file stream where the state snapshot will be recorded
+         * @post The state of the virtual machine is sequentially appended to the target file
          * @author Wong Qian Xian
          */
         void dumpStateToFile(ofstream& outFile);
