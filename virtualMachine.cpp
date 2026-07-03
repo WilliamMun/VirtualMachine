@@ -1316,7 +1316,7 @@ class Runner {
 
         /**
          * @brief   Loads and parses an assembly program from a file
-         * @details Reads the file line-by-line, converts text to uppercase, ignores blank lines, 
+         * @details Reads the file line by line, converts text to uppercase, ignores blank lines, 
          * and decodes the text into executable instructions
          * @param   filename The name of the input .asm file to read
          * @param   outputFilename The name of the text file where errors or final outputs will be written
@@ -2034,151 +2034,150 @@ Instruction* Runner::ShiftAndReset(const string& first, stringstream& rest) {
 
 string Runner::buildCpuStateString()
 {
-    stringstream out;
-    out << "#Begin#\n"; 
-    out << "#Registers#";
-    for (int i = 0; i < 8; i++) {
+    stringstream out; // create a stringstream workspace (our blank receipt paper) to assemble the report
+    out << "#Begin#\n";  // beginning of the CPU report
+    out << "#Registers#"; // step 1: record the registers (R0 to R7)
+    for (int i = 0; i < 8; i++) { // grab each register's value, format it to 4 digits (e.g., "0005"), and separate with '#'
         out << format4((int)virtualMachine.getRegister(i)->getValue()) << "#";
     }
     out << "\n";
-    FlagRegister* f = virtualMachine.getFlags();
-    out << "#Flags#OF#" << f->getOF() << "#UF#" << f->getUF() << "#CF#" << f->getCF() << "#ZF#" << f->getZF() << "#\n";
-    out << "#PC#" << format4((int)virtualMachine.getPC()) << "#\n";
-    return out.str();
+    FlagRegister* f = virtualMachine.getFlags(); // step 2: record the flags
+    out << "#Flags#OF#" << f->getOF() << "#UF#" << f->getUF() << "#CF#" << f->getCF() << "#ZF#" << f->getZF() << "#\n"; // print the 0 or 1 status for Overflow (OF), Underflow (UF), Carry (CF), and Zero (ZF)
+    out << "#PC#" << format4((int)virtualMachine.getPC()) << "#\n"; // step 3: record the program counter, format the current line number to 4 digits so we know exactly where the program stopped
+    return out.str(); // convert our completed workspace into a standard string and return it
 }
 
 Runner::~Runner()
-{
+{ // loop through every single instructions stored in our program
     for (int i = 0; i < program.size(); i++)
-        {delete program.at(i);}
+        {delete program.at(i);} // delete the dynamically allocated Instruction object from the memory
 }
 
 void Runner::decodeAndStore(string currentLine){
-    stringstream lineStream(currentLine); // turn the string into a stream to read word by word
+    stringstream lineStream(currentLine); // create a string stream workspace to read the incoming line word by word
         string first;
-        lineStream >> first; // read the first word (eg. ADD)
-        // try to translate the instruction by passing it into our 3 parser functions, if the first cant handle it, then returns nullptr, so we try MemAndIO
-        Instruction* inst = MathAndLogic(first, lineStream);
-        if (!inst) inst = parseIOAndStack(first, lineStream);
-        if (!inst) inst = parseLoadStore(first, lineStream);
-        if (!inst) inst = ShiftAndReset(first, lineStream);
-        // if one of the parsers successfully created an instruction, save it
+        lineStream >> first; // read the first wor of the line (eg. ADD)
+        // step 1: the routing chain
+        Instruction* inst = MathAndLogic(first, lineStream); // try to pass the command to the math & logic station first
+        if (!inst) inst = parseIOAndStack(first, lineStream); // if math didn't recognize it (returned nullptr), try the input/output & stack station
+        if (!inst) inst = parseLoadStore(first, lineStream); // if still not recognized, try the memory station (load/store)
+        if (!inst) inst = ShiftAndReset(first, lineStream); // finally, if none of the above worked, try the shift/reset station
+        // step 2: verification and storage, if one of the parsers successfully created an instruction
         if (inst) {
-            // --- NEW STRICT CHECK: Prevent multiple commands on one line ---
+            // try to read one more word from the stream, if anything is left over (like "ADD R1, 10 EXTRA_JUNK"), reject the entire line
             string extraGarbage;
             if (lineStream >> extraGarbage) {
             throw SyntaxException("Trailing characters or multiple instructions on one line: " + extraGarbage); }
-            program.push_back(inst); }
-        else throw SyntaxException("Invalid syntax found: " + first);
+            program.push_back(inst); } // the command is verified, push the instruction pointer into our program 
+        else throw SyntaxException("Invalid syntax found: " + first); // if none of the four stations recognized the first word, throw a syntax error
 }
 
 void Runner::loadProgram(const string& filename, const string& outputFilename) {
-    ifstream file(filename);
+    ifstream file(filename); // step 1: open the input and output files
     if(!file.is_open()) throw FileException(filename, "File is not found or cannot be opened."); 
     ofstream outFile(outputFilename);
     if (!outFile.is_open()) {
-        file.close();
+        file.close(); // prevent resource leaks by closing the input file before throwing
         throw FileException(outputFilename, "Output file cannot be created."); }
-    CustomQueue<string> lineQueue;
+    CustomQueue<string> lineQueue; // create our conveyor belts (queues) to hold the text lines and their line numbers
     CustomQueue<int> lineNumberQueue;
     string line;
     int fileLineNumber = 0;
-    while(getline(file,line)) { // read every line from the file, and put it in a queue
+    while(getline(file,line)) { // step 2: read the file line by line into the Queue
         fileLineNumber++;
-        if(isBlankLine(line)) continue; // skip empty lines
-        lineQueue.enqueue(line); // put the line back at the queue
+        if(isBlankLine(line)) continue; // if its a blank line, skip it and move to the next line
+        lineQueue.enqueue(line); // place the clean text and its corresponding line number onto our conveyor belts
         lineNumberQueue.enqueue(fileLineNumber); }
-    file.close(); // close the file when done
-    while (!lineQueue.isEmpty()) {
+    file.close(); // close the input file after all data  stored in our queues
+    while (!lineQueue.isEmpty()) { // step 3: process and decode the queued lines  
         string currentLine = lineQueue.front();
         int currentLineNumber = lineNumberQueue.front();
-        for (char &c : currentLine) c = toupper(c); // convert to uppercase
-        try { decodeAndStore(currentLine); }
+        for (char &c : currentLine) c = toupper(c); // convert every character in the line to uppercase (eg, "add r1, r2" -> "ADD R1, R2")
+        try { decodeAndStore(currentLine); } // attempt to decode the line and store the resulting Instruction object
         catch (VMException& e) {
+            // if found a syntax error, write to output file
             outFile << "Error at line " << currentLineNumber << ": " << e.getErrorMessage() << "\n";
             outFile << "Instruction: " << lineQueue.front() << "\n";
             outFile.close();
-            throw RunTimeCrashException("AT LINE " + to_string(currentLineNumber) + " >> " + e.getErrorMessage());
+            throw RunTimeCrashException("AT LINE " + to_string(currentLineNumber) + " >> " + e.getErrorMessage()); // stopp the virtual machine immediately with the exact line number that caused the crash
         }
-        lineQueue.dequeue();
+        lineQueue.dequeue(); // remove the processed line from the front of the conveyor belts
         lineNumberQueue.dequeue(); }
-    outFile.close();
+    outFile.close(); // close the output file after successfully processing the entire program
 }
 
 void Runner::executeProgram(const string& outputFilename)
 {
-    ofstream outFile;
+    ofstream outFile; // step 1: open the output logbook
     outFile.open(outputFilename);
-    for (int i = 0; i < program.size(); i++) {
+    for (int i = 0; i < program.size(); i++) { // step 2: the main execution loop, loop through every single instruction object in our program
         try{
             // tell the specific instruction to execute itself on our virtual machine
-            program.at(i) ->execute(virtualMachine); // move the program counter forward by 1
-            // dumpStateToScreen(); // @debug
+            program.at(i) ->execute(virtualMachine);
             virtualMachine.incrementPC(); // move the program counter forward by 1
-        } catch (VMException& e){
+        } catch (VMException& e){ // step 3: error handling & logging
             if(outFile.is_open()) {
                 outFile << "\n Stopping...";
                 outFile << "\n Command Caused Error: " << program.at(i)->getCommand();
                 outFile << "\n Reason: " << e.getErrorMessage() << endl;
             }
-            throw RunTimeCrashException(e.getErrorMessage(), virtualMachine.getPC()+1, program.at(i)->getCommand());
+            throw RunTimeCrashException(e.getErrorMessage(), virtualMachine.getPC()+1, program.at(i)->getCommand()); // if fatal system crash, passing along the exact PC line and failed command
         }
     }
-    dumpStateToScreen();
+    dumpStateToScreen(); // step 4: end output, if we survived the entire loop without throwing any errors, print the final output
     dumpStateToFile(outFile);
-    outFile.close();
+    outFile.close(); // close the output file before ending
 }
 
 void Runner::dumpStateToScreen()
 {
-    cout << buildCpuStateString();
-    virtualMachine.getMemory()-> displayMemory();
-    cout << "#End#\n";
+    cout << buildCpuStateString(); // retrieve and output the formatted diagnostic string containing registers, flags, and the Program Counter
+    virtualMachine.getMemory()-> displayMemory(); // access the memory via pointer and takes its data to display all memory addresses
+    cout << "#End#\n"; // output to signify the end of the state dump
 }
 
 void Runner::dumpStateToFile(ofstream& outFile)
 {
-    outFile << buildCpuStateString();
-    outFile << "#Memory#\n";
-    Memory* mem = virtualMachine.getMemory();
-    for (int row = 0; row < 8; row++) {
+    outFile << buildCpuStateString(); // append the formatted diagnostic string containing registers, flags, and the Program Counter to the file
+    outFile << "#Memory#\n"; // write the header for the memory data dump
+    Memory* mem = virtualMachine.getMemory(); // retrieve a pointer to the memory to access internal storage addresses
+    for (int row = 0; row < 8; row++) { // interate through the 64-byte memory space structured as an 8x8 matrix
         outFile << "#";
         for (int col = 0; col < 8; col++) {
             // Integer cast prevents ASCII symbols from ruining the file
-            outFile << format4((int)mem->read((row * 8) + col)) << "#";
+            outFile << format4((int)mem->read((row * 8) + col)) << "#"; // explicit integer casting ensures numerical data logging rather than raw ascii character rendering
         }
         outFile << "\n"; 
     }
-    outFile << "#End#\n";
+    outFile << "#End#\n";  // to signify the end of the file transmission
 }
 
 int main() {
-    Runner interpreter;
+    Runner interpreter; // Instantiate the primary execution controller responsible for the CPU and memory subsystems
     string filename;
-    try{
+    try{ // phase 1: user input validation
         cout << "Enter the name of the assembly file you want to run (eg., test.asm): ";
         cin >> filename;
         
-        if(filename.length() < 4 || filename.substr(filename.length() - 4) != ".asm")
+        if(filename.length() < 4 || filename.substr(filename.length() - 4) != ".asm") // verify that the filename string is long enough to contain an extension and terminates in ".asm"
             throw FileException(filename, "Invalid input file type- " + filename + ".\nMust be a .asm file.");
     } catch (VMException& e){
         cerr << e.getErrorMessage() << endl;
         return 1;
     } 
+    // phase 2: output file construction
+    string baseName = filename.substr(0, filename.length() - 4); // extract the base filename by stripping the 4-character ".asm" extension
     
-    string baseName = filename.substr(0, filename.length() - 4); 
-    
-    // build the new string
-    string outName = "output - " + baseName + ".txt";
+    string outName = "output - " + baseName + ".txt"; // construct the corresponding log filename (eg, "test.asm" -> "output - test.txt")
 
-    try{
-        interpreter.loadProgram(filename, outName);
-        interpreter.executeProgram(outName);
-    } catch (VMException& e){
+    try{ // phase 3: program loading & execution
+        interpreter.loadProgram(filename, outName); // pass the input file for syntax decoding and pass the output filename for diagnostic logging
+        interpreter.executeProgram(outName); // initiate the CPU execution cycle, directing runtime logs to the constructed output file
+    } catch (VMException& e){ // catch syntax exceptions from loadProgram() or hardware exceptions from executeProgram()
         cerr << e.getErrorMessage() << endl;
         return 1;
     }
 
-    cout << "\n Program finished! Check output.txt for the full record \n";
+    cout << "\n Program finished! Check output.txt for the full record \n"; // notify the user of successful execution completion and reference the generated log file
     return 0;
 }
