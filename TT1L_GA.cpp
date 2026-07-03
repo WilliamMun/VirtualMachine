@@ -6,6 +6,10 @@
 #include <cctype>
 using namespace std;
 
+// ***************************************************************************
+//                                 CLASS HEADER
+// ***************************************************************************
+
 /**
  * @brief   Base Exception class 
  * @details Handle all types of exception
@@ -1362,9 +1366,10 @@ class Runner {
         void dumpStateToFile(ofstream& outFile);
 };
 
-// ==========================================
-// Class Implementation
-// ==========================================
+// ***************************************************************************
+//                            CLASS IMPLEMENTATION
+// ***************************************************************************
+
 template <typename T>
 CustomVector<T>::CustomVector()
 {
@@ -2164,6 +2169,9 @@ void Runner::dumpStateToFile(ofstream& outFile)
     outFile << "#End#\n";  // to signify the end of the file transmission
 }
 
+// ***************************************************************************
+//                               MAIN PROGRAM
+// ***************************************************************************
 /**
  * @brief  Main program that implement the interpreter.
  * @author Wong Qian Xian
